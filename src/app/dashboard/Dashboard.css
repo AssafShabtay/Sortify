@@ -1,0 +1,70 @@
+.dashboard-container {
+  padding: 1.25rem;
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.top-section {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 1.25rem;
+}
+
+.bottom-section {
+  display: flex;
+  justify-content: center;
+}
+
+.card {
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 0.625rem;
+  padding: 1.25rem;
+  margin: 0.625rem;
+  width: 12.5rem;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1rem;
+  margin-bottom: 0.625rem;
+}
+
+.drive-label {
+  background-color: #eee;
+  border-radius: 50%;
+  padding: 0.3125rem 0.625rem;
+  font-weight: bold;
+}
+
+.card-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 0.625rem;
+}
+
+.card-button {
+  background-color: black;
+  color: white;
+  border: none;
+  padding: 0.625rem 1.25rem;
+  margin-bottom: 0.625rem;
+  border-radius: 1.25rem;
+  cursor: pointer;
+}
+
+.edit-preference {
+  font-size: 0.75rem;
+  color: #888;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #333;
+}

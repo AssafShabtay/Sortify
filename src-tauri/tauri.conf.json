@@ -1,0 +1,93 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Sortify",
+  "version": "0.1.0",
+  "identifier": "com.tauri.dev",
+  "build": {
+    "frontendDist": "../out",
+    "devUrl": "http://localhost:3000",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+
+  "app": {
+    "windows": [
+      {
+        "fullscreen": false,
+        "height": 655,
+        "resizable": true,
+        "title": "my-app",
+        "width": 1080,
+        "decorations": false,
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": null,
+      "capabilities": [
+        {
+          "identifier": "draggable-window",
+          "windows": ["*"],
+          "permissions": ["core:window:allow-start-dragging"]
+        },
+        {
+          "identifier": "window-management",
+          "windows": ["*"],
+          "permissions": [
+            "core:window:allow-minimize",
+            "core:window:allow-close",
+            "core:window:allow-toggle-maximize",
+            "core:window:allow-internal-toggle-maximize"
+          ]
+        },
+        {
+          "identifier": "dialog",
+          "windows": ["*"],
+          "permissions": ["dialog:allow-open", "dialog:default"]
+        },
+        {
+          "identifier": "fs",
+          "windows": ["*"],
+          "permissions": [
+            "fs:allow-app-write",
+            "fs:allow-write-text-file",
+            "fs:allow-document-write",
+            "fs:allow-appdata-meta-recursive",
+            "fs:allow-appdata-write-recursive",
+            "fs:allow-appdata-read",
+            "fs:allow-appdata-read-recursive",
+            "fs:allow-read-text-file"
+          ]
+        },
+        {
+          "identifier": "core:path",
+          "windows": ["*"],
+          "permissions": [
+            "core:path:allow-resolve-directory",
+            "core:path:allow-join"
+          ]
+        },
+        {
+          "identifier": "event",
+          "windows": ["*"],
+          "permissions": [
+            "core:event:allow-listen",
+            "core:event:allow-unlisten"
+          ]
+        }
+      ]
+    }
+  },
+  "bundle": {
+    "externalBin": ["./python_scripts/organize_model/Organize_Folder"],
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

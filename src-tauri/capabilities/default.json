@@ -1,0 +1,21 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "enables the default permissions",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "shell:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "args": ["folder_path", "app_data_path"],
+          "name": "Organize_Folder",
+          "sidecar": true
+        }
+      ]
+    },
+    "shell:allow-open"
+  ]
+}
