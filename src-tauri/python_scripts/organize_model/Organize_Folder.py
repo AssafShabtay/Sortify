@@ -22,6 +22,7 @@ import epub
 import textract
 import sys
 import codecs
+import json
 _device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
@@ -447,18 +448,17 @@ if len(X)<5:
     sys.stderr.write("Not enough files")
     sys.exit(1)
 
-    
-
 num_components = min(len(X) - 3, 15)
 umap_model = umap.UMAP(n_components=num_components, random_state=42)
 X_reduced = umap_model.fit_transform(X)
+
 umap_model = umap.UMAP(n_components=2, random_state=42)
 X_reduced_plt = umap_model.fit_transform(X)
 
 np.random.seed(42)
 
 X_reduced = X_reduced.astype(np.float64)
-
+# Find best parameters
 def objective(trial):
     n_samples = X_reduced.shape[0]
     
@@ -495,7 +495,6 @@ study.optimize(objective, n_trials=400)
 trials = [t.number for t in study.trials]
 scores = [t.value for t in study.trials]
 
-# Print best parameters
 print(f"Best DBCV Score: {study.best_value}")
 print(f"Best Parameters: {study.best_params}")
 
@@ -517,6 +516,8 @@ labels = best_clusterer.fit_predict(X_reduced)
 
 df = pd.DataFrame(X_reduced_plt, columns=['x', 'y'])
 df["label"] = labels
+
+# Writing json
 cluster_mapping = [
     {"path": path, "label": int(label)} 
     for path, label in zip(dataset['path'], labels)
