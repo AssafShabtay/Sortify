@@ -383,7 +383,6 @@ def run_model_organizer(folder_path, dict_as_one=False, max_workers=4):
               file_paths.append(file_path)
 
 
-    # Process files
     print(f"Processing {len(file_paths)} top-level files")
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_file = {executor.submit(extract_file_summary, file_path): file_path for file_path in file_paths}
@@ -396,8 +395,7 @@ def run_model_organizer(folder_path, dict_as_one=False, max_workers=4):
                     file_summaries[file_path] = summary
             except Exception as e:
                 print(f"Error processing top-level file {file_path}: {e}")
-
-    # Process directories
+                
     if dict_as_one:
       print(f"Processing {len(top_level_dir_paths)} directories")
       with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, max_workers//2)) as executor:
@@ -429,13 +427,9 @@ lemmatizer = WordNetLemmatizer()
 def clean_text(text):
     if not isinstance(text, str):
         return "" 
-
     text = text.lower()
-
     text = re.sub(r'[^a-z\s]', '', text, flags=re.A)
-
     words = text.split()
-
     cleaned_lemmatized_words = []
     for word in words:
         if word and word not in stop_words: 
@@ -463,7 +457,6 @@ X_reduced_plt = umap_model.fit_transform(X)
 
 np.random.seed(42)
 
-# Ensure data is float64
 X_reduced = X_reduced.astype(np.float64)
 
 def objective(trial):
@@ -476,7 +469,6 @@ def objective(trial):
     metric = trial.suggest_categorical("metric", ["euclidean", "manhattan", "l2"])  # Restricted to valid metrics
     p = trial.suggest_float("p", 1.0, 3.0)
 
-    # Fit HDBSCAN
     clusterer = hdbscan.HDBSCAN(
         min_samples=min_samples,
         min_cluster_size=min_cluster_size,
@@ -490,30 +482,18 @@ def objective(trial):
     )
 
     labels = clusterer.fit_predict(X_reduced)
-
-    # Skip cases with all noise (-1 labels)
+    
     if len(set(labels)) <= 1:
         return -1  
 
-    # Compute DBCV score
     return validity_index(X_reduced, labels)
 
-sampler = optuna.samplers.NSGAIISampler(seed=42)  # Use NSGAII for multi-objective tuning
+sampler = optuna.samplers.NSGAIISampler(seed=42) 
 study = optuna.create_study(direction="maximize", sampler=sampler)
-study.optimize(objective, n_trials=400)  # Increase trials for better results
+study.optimize(objective, n_trials=400)  
 
-# Extract trial numbers and scores
 trials = [t.number for t in study.trials]
 scores = [t.value for t in study.trials]
-
-# Plot DBCV Score Evolution
-#plt.figure(figsize=(10, 5))
-#plt.plot(trials, scores, marker='o', linestyle='-')
-#plt.xlabel("Trial Number")
-#plt.ylabel("DBCV Score")
-#plt.title("DBCV Score Optimization Over Trials")
-#plt.grid(True)
-#plt.show()
 
 # Print best parameters
 print(f"Best DBCV Score: {study.best_value}")
@@ -521,7 +501,6 @@ print(f"Best Parameters: {study.best_params}")
 
 best_params = study.best_params
 
-# Fit the HDBSCAN model with the best parameters
 best_clusterer = hdbscan.HDBSCAN(
     min_samples=best_params["min_samples"],
     min_cluster_size=best_params["min_cluster_size"],
@@ -534,40 +513,16 @@ best_clusterer = hdbscan.HDBSCAN(
     allow_single_cluster=True
 )
 
-# Get labels using the best parameters
 labels = best_clusterer.fit_predict(X_reduced)
 
-# Print the labels corresponding to the best parameters
-
 df = pd.DataFrame(X_reduced_plt, columns=['x', 'y'])
-df['label'] = labels
-#plt.figure(figsize=(10, 8))
-#sns.scatterplot(data=df, x='x', y='y', hue='label', palette='Set1', s=100, legend='full', alpha=1)
-#count = 0
-#for i in range(len(df)):
-#  if df['label'][i] == -1:
-#    count += 1
-#    plt.text(df['x'][i], df['y'][i], df['label'][i], fontsize=12, alpha=0.7)
-#
-#plt.title(f'HDBSCAN Clustering Results (Dataset Size: {len(X)})')
-#plt.xlabel('UMAP Component 1')
-#plt.ylabel('UMAP Component 2')
-#plt.legend(title='Cluster Labels', bbox_to_anchor=(1.05, 1), loc='upper left')
-#plt.show()
-#print(count)
-
-
-import json
-
-# Make sure this matches what Rust expects
+df["label"] = labels
 cluster_mapping = [
     {"path": path, "label": int(label)} 
     for path, label in zip(dataset['path'], labels)
 ]
-print("the 2 end")
 
 with open(output_json_path, "w", encoding="utf-8") as f:
     json.dump(cluster_mapping, f, ensure_ascii=False, indent=2)
 
-print("the end")
 sys.exit(0)
