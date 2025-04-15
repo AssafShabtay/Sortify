@@ -25,13 +25,9 @@ import codecs
 _device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-if len(sys.argv) < 3:
-    print("Error: Please provide the input folder path and the output JSON path.")
-    print("Usage: python Organize_Folder.py <path_to_folder_to_scan> <path_to_output.json>")
-    sys.exit(1) # Exit if not enough arguments
-folder_path = sys.argv[1] # Use the first argument for input
+folder_path = sys.argv[1]  
 output_json_path = sys.argv[2]
-# Set console output encoding to UTF-8
+# make the prints be in utf-8
 if sys.platform == 'win32':
     sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
     sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
@@ -40,18 +36,15 @@ if sys.platform == 'win32':
 def extract_pdf_text(file_path):
     start_time = time.time()
     try:
-        # Attempt to open the PDF file
         doc = pymupdf.open(file_path)
         text_extracted = ""
 
-        # Loop through all pages
         for page_num in range(len(doc)):
             try:
                 page = doc.load_page(page_num)
                 text = page.get_text("text")
                 text_extracted += text
 
-                # If we have enough text, stop
                 if len(text_extracted) >= 1200:
                     return text_extracted
             except Exception as e:
@@ -67,13 +60,13 @@ def extract_docx_text(file_path):
     doc = docx.Document(file_path)
     text = ""
     start_time = time.time()
-    # Extract text from paragraphs first
+ 
     for para in doc.paragraphs:
         text += para.text + "\n"
         if len(text) >= 1200:
             break
 
-    # If the text is still under 500 characters, add text from tables
+
     if len(text) < 1200:
         table_text = ""
         for table in doc.tables:
@@ -85,7 +78,7 @@ def extract_docx_text(file_path):
             if len(text + table_text) >= 1200:
                 break
 
-        # Add table text to the final output, ensuring total length is ≤ 500
+
         text += table_text
 
     return text
@@ -318,7 +311,6 @@ def extract_file_summary(file_path):
             if translated_text:
                 return translated_text
                 summary = summarize_text(translated_text)
-                #print(summary)
                 return summary
             else:
                 print(f"Translation failed for: {file_path}")
@@ -338,8 +330,7 @@ def extract_file_summary(file_path):
 def process_directory(folder_path,max_workers=4):
     summaries = []
     print(f"Processing folder: {folder_path}")
-
-    # Get all files in the directory
+    
     file_paths = []
     for root, dirs, files in os.walk(folder_path):
         for file in files:
@@ -347,12 +338,8 @@ def process_directory(folder_path,max_workers=4):
             if os.path.isfile(file_path):
                 file_paths.append(file_path)
 
-    # Process files in parallel
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        # Map the extract_file_summary function to all files
         future_to_file = {executor.submit(extract_file_summary, file_path): file_path for file_path in file_paths}
-
-        # Collect results as they complete
         for future in concurrent.futures.as_completed(future_to_file):
             file_path = future_to_file[future]
             try:
@@ -365,8 +352,6 @@ def process_directory(folder_path,max_workers=4):
 
     if not summaries:
         return "No summaries were generated for this folder."
-
-    # Combine file summaries into a single text
     combined_summary = " | ".join(filter(None, summaries))
     print(f"Combined summary: {combined_summary[:200]}...")
 
@@ -378,7 +363,6 @@ def run_model_organizer(folder_path, dict_as_one=False, max_workers=4):
     MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
     start_time = time.time()
 
-    # Process top-level files
     file_paths = []
     top_level_dir_paths = []
     if dict_as_one:
@@ -386,7 +370,6 @@ def run_model_organizer(folder_path, dict_as_one=False, max_workers=4):
           for entry in entries:
               entry_path = entry.path
 
-              # Skip large files
               if entry.is_file() and os.path.getsize(entry_path) <= MAX_FILE_SIZE:
                   file_paths.append(entry_path)
               elif entry.is_dir():
