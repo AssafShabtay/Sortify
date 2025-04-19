@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { Folder, Plus, GripVertical, Save, RotateCcw } from "lucide-react";
-import "../../globals.css";
 import {
   Dialog,
   DialogContent,
