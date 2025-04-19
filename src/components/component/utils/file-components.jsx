@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import React from "react";
+//import { PdfIcon, DocxIcon } from "@/components/ui/icons/file_icons";
 // File card - fix the styling to look better in the folder
 export function FileCard({
   file,
@@ -31,6 +32,10 @@ export function FileCard({
         : "h-6 w-6 sm:h-8 sm:w-8";
 
     switch (file.type) {
+      case "docx":
+        return <FileText className={`${iconSize} text-blue-500`} />;
+      case "pdf":
+        return <FileText className={`${iconSize} text-blue-500`} />;
       case "document":
         return <FileText className={`${iconSize} text-blue-500`} />;
       case "image":
@@ -213,6 +218,7 @@ export function FileCard({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onClick={(e) => onClick && onClick(e)}
+        onDoubleClick={(e) => console.log(e)}
         data-file-id={file.id}
       >
         <div className="flex flex-col items-center text-center">

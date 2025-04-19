@@ -14,12 +14,13 @@
     "windows": [
       {
         "fullscreen": false,
-        "height": 655,
+        "height": 720,
         "resizable": true,
-        "title": "my-app",
-        "width": 1080,
+        "title": "Sortify",
+        "width": 1280,
         "decorations": false,
-        "dragDropEnabled": false
+        "dragDropEnabled": false,
+        "maximized": true
       }
     ],
     "security": {

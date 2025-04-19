@@ -9,7 +9,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             ai_handling::organize_model::run_organize_model,
-            ai_handling::organize_model::organize_files_from_json
+            ai_handling::organize_model::organize_files_from_json,
+            ai_handling::organize_model::count_files_in_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

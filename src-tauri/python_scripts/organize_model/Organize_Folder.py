@@ -35,7 +35,6 @@ if sys.platform == 'win32':
 
 #-------------------Texts--------------------------------------------------
 def extract_pdf_text(file_path):
-    start_time = time.time()
     try:
         doc = pymupdf.open(file_path)
         text_extracted = ""
@@ -56,11 +55,13 @@ def extract_pdf_text(file_path):
     except Exception as e:
         return None
 
+def extract_doc_text(file_path):
+    text = textract.process(file_path).decode("utf-8")
+    return text
 
 def extract_docx_text(file_path):
     doc = docx.Document(file_path)
     text = ""
-    start_time = time.time()
  
     for para in doc.paragraphs:
         text += para.text + "\n"
@@ -86,7 +87,6 @@ def extract_docx_text(file_path):
 
 
 def extract_txt_text(file_path):
-    start_time = time.time()
     try:
         with open(file_path, "r", encoding="utf-8") as file:
             content = file.read()
@@ -98,15 +98,8 @@ def extract_txt_text(file_path):
         return content[:1200]
 
 
-def extract_doc_text(file_path):
-    start_time = time.time()
-    text = textract.process(file_path).decode("utf-8")
-    return text
-
-
 
 def extract_tex_text(file_path):
-    start_time = time.time()
     with open(file_path, "r", encoding="utf-8") as file:
 
         return file.read()[:1200]
@@ -115,7 +108,6 @@ def extract_epub_text(file_path):
     book = epub.read_epub(file_path)
     text = []
     char_count = 0
-    start_time = time.time()
     for item in book.get_items():
         if item.get_type() == epub.EpubItem.TEXT:
             soup = bs(item.get_body_content(), 'html.parser')

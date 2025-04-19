@@ -70,3 +70,57 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+.file-selected,
+.file-card.file-selected,
+div.file-selected {
+  background-color: rgba(var(--primary-rgb), 0.1) !important;
+  border-color: var(--primary) !important;
+  outline: 1px solid var(--primary) !important;
+  z-index: 1;
+}
+
+/* Properly handle hover states */
+.file-selected:hover {
+  background-color: rgba(var(--primary-rgb), 0.2) !important;
+}
+
+/* Ensure content has proper z-index */
+.file-card .card-content {
+  position: relative;
+  z-index: 5;
+}
+
+/* Ensure no pseudo-elements are causing the issue */
+.file-card::before,
+.file-card::after {
+  display: none !important;
+}
+
+/* Ensure cursor reset works reliably */
+.cursor-reset,
+.cursor-reset * {
+  cursor: default !important;
+}
+
+.force-cursor-reset {
+  cursor: auto !important;
+}
+
+/* Fix for selection box */
+#selection-box {
+  z-index: 50;
+  pointer-events: none;
+}
+
+/* Ensure drag-related styles work properly */
+.file-dragging {
+  cursor: move !important;
+}
+
+/* Ensure proper stacking for drag targets */
+.drag-target-active {
+  z-index: 10;
+  background-color: rgba(var(--primary-rgb), 0.05);
+  border-color: var(--primary);
+}

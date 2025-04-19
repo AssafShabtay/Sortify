@@ -16,9 +16,33 @@ struct FileLabel {
 }
 
 #[tauri::command]
+pub fn count_files_in_folder(folder_path: String)-> i32
+{
+    let extensions = vec!["pdf","docx" ,"txt" ,"doc" ,"tex" ,"epub"];
+    let path = Path::new(&folder_path);
+    let mut count = 0;
+
+    if path.is_dir() {
+        if let Ok(entries) = fs::read_dir(path) {
+            for entry in entries.flatten() {
+                if let Some(extension) = entry.path().extension() {
+                    if extensions.contains(&extension.to_str().unwrap_or("")) {
+                        count += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    count 
+}
+
+#[tauri::command]
 pub async fn organize_files_from_json(
     base_output: String,
-    app: tauri::AppHandle
+    app: tauri::AppHandle,
+    copy_or_move: String
+
 ) -> Result<(), String> {  
     let app_data_path = match app.path().app_data_dir() {
         Ok(path) => path.to_string_lossy().to_string(),
@@ -39,25 +63,31 @@ pub async fn organize_files_from_json(
         Ok(parsed) => parsed,
         Err(e) => return Err(e.to_string()),
     };
-
     for item in items {
         let label_folder = format!("{}/label_{}", base_output, item.label);
         if let Err(e) = fs::create_dir_all(&label_folder) {
+            println!("ee{}",label_folder);
             return Err(e.to_string());
         }
-
         let src = Path::new(&item.path);
         let filename = match src.file_name() {
             Some(name) => name,
             None => return Err(format!("Invalid filename in path: {}", item.path)),
         };
         let dest = Path::new(&label_folder).join(filename);
-
-        if let Err(e) = fs::rename(&src, &dest) {
-            return Err(e.to_string());
+        if copy_or_move.as_str() == "move"{
+            if let Err(e) = fs::rename(&src, &dest) {
+                println!("err {}", e);
+                return Err(e.to_string());
+            }
+        }
+        if copy_or_move.as_str() == "copy"{
+            if let Err(e) = fs::copy(&src, &dest) {
+                println!("err {}", e);
+                return Err(e.to_string());
+            }
         }
     }
-
     Ok(())
 }
 #[tauri::command]
@@ -124,8 +154,6 @@ pub async fn run_organize_model(folder_path: String, app: tauri::AppHandle) -> R
                 }
                 CommandEvent::Terminated(status) => {
                     println!("Sidecar process terminated with status: {:?}", status);
-                    
-                    // If exit code is not 0, it's an error
                     if let Some(code) = status.code {
                         if code != 0 {
                             result = Err(format!("Process exited with non-zero status: {}", code));

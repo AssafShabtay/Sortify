@@ -199,7 +199,8 @@ export async function saveChanges(
   setHasChanges,
   setIsSaving,
   baseOutput,
-  toast
+  toast,
+  copyOrMove
 ) {
   setIsSaving(true);
 
@@ -261,6 +262,7 @@ export async function saveChanges(
   try {
     await invoke("organize_files_from_json", {
       baseOutput: baseOutput,
+      copyOrMove: copyOrMove,
     });
 
     toast({
@@ -269,7 +271,7 @@ export async function saveChanges(
       duration: 3000,
     });
   } catch (error) {
-    console.error("Error invoking run_organize_model:", error);
+    console.error("Error invoking:", error);
     toast({
       title: "Error processing changes",
       description: `Could not run organize model. Error: ${error}`,

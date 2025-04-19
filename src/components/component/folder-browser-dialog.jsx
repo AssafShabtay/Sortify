@@ -28,6 +28,12 @@ import {
 // Add these imports at the top of the file
 import { fetchFolderData, transformFolderData } from "./utils/data-loader";
 import { Loader2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function FolderBrowserDialog({
   open,
@@ -638,12 +644,20 @@ export default function FolderBrowserDialog({
 
   // --- Box Selection Handlers --
 
+  const createSelectionBox = () => {
+    const box = document.createElement("div");
+    box.className =
+      "absolute border-2 border-dashed border-primary bg-primary/10 z-50 pointer-events-none";
+    box.style.display = "none";
+    box.id = "selection-box";
+    return box;
+  };
+
   const handleSelectionMouseDown = (e, folderId) => {
     // Set the active folder when clicking in it
     setCurrentFolderId(folderId);
 
     // Only start selection if clicking directly on the container background or the grid container
-    // Allow selection to start on the grid container as well
     if (
       e.target !== e.currentTarget &&
       !e.target.classList.contains("grid") &&
@@ -652,84 +666,147 @@ export default function FolderBrowserDialog({
       return;
     }
 
-    e.preventDefault(); // Prevent text selection, etc.
+    e.preventDefault(); // Prevent text selection
     const container = fileContainerRefs.current[folderId];
     if (!container) return;
 
     const rect = container.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const startX = e.clientX - rect.left;
+    const startY = e.clientY - rect.top;
 
-    console.log("Selection started at", x, y); // Add logging
+    // Direct DOM manipulation for the selection box
+    let selectionBoxElement = container.querySelector("#selection-box");
+    if (!selectionBoxElement) {
+      selectionBoxElement = createSelectionBox();
+      container.appendChild(selectionBoxElement);
+    }
 
-    setSelectionBox({
-      startX: x,
-      startY: y,
-      currentX: x,
-      currentY: y,
-      folderId,
-    });
+    // Make the selection box visible
+    selectionBoxElement.style.display = "block";
+    selectionBoxElement.style.left = `${startX}px`;
+    selectionBoxElement.style.top = `${startY}px`;
+    selectionBoxElement.style.width = "0";
+    selectionBoxElement.style.height = "0";
 
+    // Only set React state once to indicate selection is active
     setIsSelecting(true);
 
-    // Clear previous selection in this folder (unless Ctrl/Shift is pressed)
+    // Set a local variable to track files that are selected
+    // We'll only update React state when selection is complete
+    const newlySelected = new Set(
+      e.ctrlKey || e.shiftKey ? [...(selectedFiles[folderId] || [])] : []
+    );
+
+    // Clear selection in React state if not using modifiers
     if (!e.ctrlKey && !e.shiftKey) {
       setSelectedFiles((prev) => ({ ...prev, [folderId]: new Set() }));
     }
 
-    const handleMouseMove = (moveEvent) => {
-      const currentX = moveEvent.clientX - rect.left;
-      const currentY = moveEvent.clientY - rect.top;
+    // Keep track of files and their DOM elements for quick intersection testing
+    const filesInFolder = folderFiles[folderId] || [];
+    const fileElements = [];
 
-      console.log("Selection moved to", currentX, currentY); // Add logging
+    // Pre-compute file positions for faster intersection testing
+    filesInFolder.forEach((file) => {
+      const fileEl = fileRefs.current?.[folderId]?.[file.id];
+      if (fileEl) {
+        const fileRect = fileEl.getBoundingClientRect();
+        fileElements.push({
+          id: file.id,
+          left: fileRect.left - rect.left,
+          top: fileRect.top - rect.top,
+          right: fileRect.left - rect.left + fileRect.width,
+          bottom: fileRect.top - rect.top + fileRect.height,
+          element: fileEl,
+        });
+      }
+    });
 
-      setSelectionBox((prev) => {
-        if (!prev) return null;
-        return { ...prev, currentX, currentY };
-      });
+    let animationFrameId;
+    let currentX, currentY;
 
-      // Calculate selection rectangle bounds
-      const selX = Math.min(x, currentX);
-      const selY = Math.min(y, currentY);
-      const selWidth = Math.abs(x - currentX);
-      const selHeight = Math.abs(y - currentY);
+    const updateSelectionBox = () => {
+      if (!currentX || !currentY) return;
 
-      const filesInFolder = folderFiles[folderId] || [];
-      const newlySelected = new Set(
-        e.ctrlKey || e.shiftKey ? [...(selectedFiles[folderId] || [])] : []
-      );
+      // Update selection box position
+      const selX = Math.min(startX, currentX);
+      const selY = Math.min(startY, currentY);
+      const selWidth = Math.abs(startX - currentX);
+      const selHeight = Math.abs(startY - currentY);
 
-      // Check each file to see if it's in the selection box
-      filesInFolder.forEach((file) => {
-        const fileEl = fileRefs.current?.[folderId]?.[file.id];
-        if (fileEl) {
-          const fileRect = fileEl.getBoundingClientRect();
-          const fileRelX = fileRect.left - rect.left;
-          const fileRelY = fileRect.top - rect.top;
+      selectionBoxElement.style.left = `${selX}px`;
+      selectionBoxElement.style.top = `${selY}px`;
+      selectionBoxElement.style.width = `${selWidth}px`;
+      selectionBoxElement.style.height = `${selHeight}px`;
 
-          // Check if the file intersects with the selection box
-          if (
-            selX < fileRelX + fileRect.width &&
-            selX + selWidth > fileRelX &&
-            selY < fileRelY + fileRect.height &&
-            selY + selHeight > fileRelY
-          ) {
-            newlySelected.add(file.id);
+      // Efficiently check file intersections
+      // Use a Set for tracking current visible files to avoid visual flickering
+      const visibleInSelection = new Set();
+
+      fileElements.forEach((file) => {
+        const isIntersecting = !(
+          selX > file.right ||
+          file.left > selX + selWidth ||
+          selY > file.bottom ||
+          file.top > selY + selHeight
+        );
+
+        // Set visual indicator through DOM directly
+        if (isIntersecting) {
+          visibleInSelection.add(file.id);
+          if (!file.element.classList.contains("file-selected")) {
+            file.element.classList.add("file-selected");
           }
+        } else if (!newlySelected.has(file.id)) {
+          // Only remove highlight if not in original selection
+          file.element.classList.remove("file-selected");
         }
       });
 
-      setSelectedFiles((prev) => ({ ...prev, [folderId]: newlySelected }));
+      // Store selected files for final state update, but don't update React state yet
+      fileElements.forEach((file) => {
+        if (visibleInSelection.has(file.id)) {
+          newlySelected.add(file.id);
+        } else if (!e.ctrlKey && !e.shiftKey) {
+          newlySelected.delete(file.id);
+        }
+      });
+
+      animationFrameId = requestAnimationFrame(updateSelectionBox);
+    };
+
+    const handleMouseMove = (moveEvent) => {
+      // Just update local variables, not React state
+      currentX = moveEvent.clientX - rect.left;
+      currentY = moveEvent.clientY - rect.top;
+
+      // Start animation frame if not already running
+      if (!animationFrameId) {
+        animationFrameId = requestAnimationFrame(updateSelectionBox);
+      }
     };
 
     const handleMouseUp = () => {
-      console.log("Selection ended"); // Add logging
+      // Clean up animation frame
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+
+      // Hide selection box
+      if (selectionBoxElement) {
+        selectionBoxElement.style.display = "none";
+      }
+
+      // Only now update React state with the final selection
+      setSelectedFiles((prev) => ({ ...prev, [folderId]: newlySelected }));
       setIsSelecting(false);
-      setSelectionBox(null);
+
+      // Clean up event listeners
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
 
+    // Add event listeners
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
   };
@@ -757,8 +834,16 @@ export default function FolderBrowserDialog({
     });
   };
 
-  const handleSaveChanges = () => {
-    saveChanges(folderFiles, setHasChanges, setIsSaving, baseOutput, toast);
+  // Replace the handleSaveChanges function with this updated version
+  const handleSaveChanges = (copyOrMove) => {
+    saveChanges(
+      folderFiles,
+      setHasChanges,
+      setIsSaving,
+      baseOutput,
+      toast,
+      copyOrMove
+    );
 
     // Close the dialog after saving
     setTimeout(() => {
@@ -771,80 +856,154 @@ export default function FolderBrowserDialog({
     setCurrentFolderId(folderId);
 
     if (e.metaKey || e.ctrlKey) {
-      // Just handle the modifier key selection and return
+      // Handle modifier key selection immediately
       setSelectedFiles((prev) => {
-        const folderSelection = prev[folderId] || new Set();
+        const folderSelection = new Set(prev[folderId] || []);
         if (folderSelection.has(fileId)) {
           folderSelection.delete(fileId);
         } else {
           folderSelection.add(fileId);
         }
-        return { ...prev, [folderId]: new Set(folderSelection) };
+        return { ...prev, [folderId]: folderSelection };
       });
-    } else {
-      // Start selection drag
-      setIsSelecting(true);
-      const rect = fileContainerRefs.current[folderId].getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      setSelectionRect({ x: x, y: y, width: 0, height: 0 });
+      return;
+    }
 
-      const handlePointerMove = (moveEvent) => {
-        if (!isSelecting) return;
-        const currentX = moveEvent.clientX - rect.left;
-        const currentY = moveEvent.clientY - rect.top;
+    // Start selection drag
+    setIsSelecting(true);
+    const container = fileContainerRefs.current[folderId];
+    if (!container) return;
 
-        const newRect = {
-          x: Math.min(x, currentX),
-          y: Math.min(y, currentY),
-          width: Math.abs(x - currentX),
-          height: Math.abs(y - currentY),
-        };
-        setSelectionRect(newRect);
-      };
+    const rect = container.getBoundingClientRect();
+    const startX = e.clientX - rect.left;
+    const startY = e.clientY - rect.top;
 
-      const handlePointerUp = () => {
-        if (!isSelecting) return;
-        setIsSelecting(false);
-        document.removeEventListener("pointermove", handlePointerMove);
-        document.removeEventListener("pointerup", handlePointerUp);
+    // Create and position the selection box using DOM
+    let selectionBoxElement = container.querySelector("#selection-box");
+    if (!selectionBoxElement) {
+      selectionBoxElement = createSelectionBox();
+      container.appendChild(selectionBoxElement);
+    }
 
-        // Determine selected files within the selection rectangle
-        const currentFolderId = folderId;
-        const folderElement = document.querySelector(
-          `[data-folder-id="${currentFolderId}"]`
+    selectionBoxElement.style.display = "block";
+    selectionBoxElement.style.left = `${startX}px`;
+    selectionBoxElement.style.top = `${startY}px`;
+    selectionBoxElement.style.width = "0";
+    selectionBoxElement.style.height = "0";
+
+    // Select the clicked file
+    const initialSelection = new Set([fileId]);
+    setSelectedFiles((prev) => ({ ...prev, [folderId]: initialSelection }));
+
+    // Mark the clicked file as selected in the DOM
+    const fileEl = fileRefs.current?.[folderId]?.[fileId];
+    if (fileEl) {
+      fileEl.classList.add("file-selected");
+    }
+
+    // Pre-compute file elements and their positions
+    const fileElements = [];
+    const filesInFolder = folderFiles[folderId] || [];
+
+    filesInFolder.forEach((file) => {
+      const fileEl = fileRefs.current?.[folderId]?.[file.id];
+      if (fileEl) {
+        const fileRect = fileEl.getBoundingClientRect();
+        fileElements.push({
+          id: file.id,
+          left: fileRect.left - rect.left,
+          top: fileRect.top - rect.top,
+          right: fileRect.left - rect.left + fileRect.width,
+          bottom: fileRect.top - rect.top + fileRect.height,
+          element: fileEl,
+        });
+      }
+    });
+
+    let animationFrameId;
+    let currentX, currentY;
+    let finalSelection = new Set([fileId]);
+
+    const updateDragSelection = () => {
+      if (!currentX || !currentY) return;
+
+      // Update selection box position
+      const selX = Math.min(startX, currentX);
+      const selY = Math.min(startY, currentY);
+      const selWidth = Math.abs(startX - currentX);
+      const selHeight = Math.abs(startY - currentY);
+
+      selectionBoxElement.style.left = `${selX}px`;
+      selectionBoxElement.style.top = `${selY}px`;
+      selectionBoxElement.style.width = `${selWidth}px`;
+      selectionBoxElement.style.height = `${selHeight}px`;
+
+      // Track the files that are currently visible in selection
+      const visibleInSelection = new Set();
+
+      fileElements.forEach((file) => {
+        const isIntersecting = !(
+          selX > file.right ||
+          file.left > selX + selWidth ||
+          selY > file.bottom ||
+          file.top > selY + selHeight
         );
 
-        if (folderElement) {
-          const fileCards = folderElement.querySelectorAll(`[data-file-id]`);
-          const rect = selectionRect;
-          const selectedInDrag = new Set();
-
-          fileCards.forEach((card) => {
-            const fileRect = card.getBoundingClientRect();
-            const isIntersecting = !(
-              rect.x > fileRect.right ||
-              fileRect.left > rect.x + rect.width ||
-              rect.y > fileRect.bottom ||
-              fileRect.top > rect.y + rect.height
-            );
-            if (isIntersecting) {
-              selectedInDrag.add(card.dataset.fileId);
-            }
-          });
-
-          setSelectedFiles((prev) => {
-            return { ...prev, [currentFolderId]: selectedInDrag };
-          });
+        // Apply visual selection immediately via DOM
+        if (isIntersecting) {
+          visibleInSelection.add(file.id);
+          if (!file.element.classList.contains("file-selected")) {
+            file.element.classList.add("file-selected");
+          }
+        } else {
+          file.element.classList.remove("file-selected");
         }
+      });
 
-        setSelectionRect({ x: 0, y: 0, width: 0, height: 0 });
-      };
+      // Store selection for final state update
+      finalSelection = visibleInSelection;
 
-      // Add event listeners
-      document.addEventListener("pointermove", handlePointerMove);
-      document.addEventListener("pointerup", handlePointerUp);
-    }
+      animationFrameId = requestAnimationFrame(updateDragSelection);
+    };
+
+    const handlePointerMove = (moveEvent) => {
+      // Just update tracking variables
+      currentX = moveEvent.clientX - rect.left;
+      currentY = moveEvent.clientY - rect.top;
+
+      // Start animation frame if not already running
+      if (!animationFrameId) {
+        animationFrameId = requestAnimationFrame(updateDragSelection);
+      }
+    };
+
+    const handlePointerUp = () => {
+      // Clean up animation frame
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+
+      // Hide selection box
+      if (selectionBoxElement) {
+        selectionBoxElement.style.display = "none";
+      }
+
+      // Update final selection in React state
+      setSelectedFiles((prev) => ({
+        ...prev,
+        [folderId]: finalSelection,
+      }));
+
+      setIsSelecting(false);
+
+      // Clean up event listeners
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerUp);
+    };
+
+    // Add event listeners
+    document.addEventListener("pointermove", handlePointerMove);
+    document.addEventListener("pointerup", handlePointerUp);
   };
 
   // Normalize folder widths when resizing is complete
@@ -1020,6 +1179,7 @@ export default function FolderBrowserDialog({
           <div className="flex justify-between items-center">
             <DialogTitle>Cluster Explorer</DialogTitle>
             {/* Always show the Save Changes button */}
+            {/* Replace the Save Changes button in the DialogHeader with this dropdown menu */}
             <div className="flex items-center gap-2">
               <Button
                 onClick={handleRevertChanges}
@@ -1030,14 +1190,25 @@ export default function FolderBrowserDialog({
                 <RotateCcw className="h-4 w-4" />
                 {isLoading ? "Reverting..." : "Revert Changes"}
               </Button>
-              <Button
-                onClick={handleSaveChanges}
-                disabled={isSaving || isLoading}
-                className="flex items-center gap-2"
-              >
-                <Save className="h-4 w-4" />
-                {isSaving ? "Saving..." : "Save Changes"}
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    disabled={isSaving || isLoading}
+                    className="flex items-center gap-2"
+                  >
+                    <Save className="h-4 w-4" />
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleSaveChanges("move")}>
+                    Move Files
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleSaveChanges("copy")}>
+                    Copy Files
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
           <DialogDescription>

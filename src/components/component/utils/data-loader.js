@@ -1,6 +1,3 @@
-// Data loader utility with hardcoded data
-
-// Replace the entire fetchFolderData function with this improved version
 import { z } from "zod";
 import { appDataDir, join } from "@tauri-apps/api/path";
 import { exists, mkdir, readTextFile } from "@tauri-apps/plugin-fs";
@@ -51,7 +48,7 @@ export async function fetchFolderData() {
 function sanitizeData(data) {
   return data.map((item) => ({
     ...item,
-    path: item.path.replace(/[<>:"/\\|?*]+/g, ""), // Remove unsafe characters from the path
+    path: item.path.replace(/[<>"|?*]+/g, ""), // Remove unsafe characters from the path
     label: item.label, // Ensure label is safe (not requiring sanitization in this case)
   }));
 }
@@ -135,12 +132,23 @@ function getFileTypeFromExtension(fileName) {
 
   const typeMap = {
     // Documents
-    doc: "document",
-    docx: "document",
-    pdf: "document",
+    doc: "docx",
+    docx: "docx",
+    pdf: "pdf",
     txt: "document",
     rtf: "document",
     odt: "document",
+
+    // Spreadsheets
+    xls: "spreadsheet",
+    xlsx: "spreadsheet",
+    csv: "spreadsheet",
+    ods: "spreadsheet",
+
+    // Presentations
+    ppt: "presentation",
+    pptx: "presentation",
+    odp: "presentation",
 
     // Images
     jpg: "image",
@@ -162,9 +170,38 @@ function getFileTypeFromExtension(fileName) {
     mp4: "video",
     avi: "video",
     mov: "video",
-    wmv: "video",
     mkv: "video",
     webm: "video",
+
+    // Archives
+    zip: "archive",
+    rar: "archive",
+    tar: "archive",
+    gz: "archive",
+    "7z": "archive",
+
+    // Code files
+    js: "code",
+    jsx: "code",
+    ts: "code",
+    tsx: "code",
+    html: "code",
+    css: "code",
+    py: "code",
+    java: "code",
+    c: "code",
+    cpp: "code",
+    php: "code",
+    rb: "code",
+    go: "code",
+    rs: "code",
+    swift: "code",
+
+    // Data files
+    json: "data",
+    xml: "data",
+    sql: "data",
+    db: "data",
   };
 
   return typeMap[extension] || "other";

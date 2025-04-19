@@ -19,6 +19,7 @@ import { listen } from "@tauri-apps/api/event";
 
 export default function Dashboard() {
   const { toast } = useToast();
+  const [fileCount, setFileCount] = useState(0);
   const [isDialogBrowserOpen, setIsDialogBrowserOpen] = useState(false);
   const [isOrganizing, setIsOrganizing] = useState(false);
   // Add state for loading message
@@ -53,9 +54,15 @@ export default function Dashboard() {
   useEffect(() => {
     let messageInterval;
     let progressInterval;
-
+    let startTime;
+    setLoadingProgress((prev) => {
+      // Smaller increments for larger file counts
+      const increment = 0.1;
+      const newProgress = prev + increment;
+      return Math.min(newProgress, 90);
+    });
     if (isOrganizing) {
-      // Start with the first message
+      startTime = Date.now();
       setLoadingMessage(loadingMessages[0]);
       setLoadingProgress(0);
 
@@ -67,13 +74,38 @@ export default function Dashboard() {
       }, 3000);
 
       // Update progress bar
+      const baseInterval = 800; // Base interval in ms
+      const intervalAdjustment = Math.max(
+        100,
+        Math.min(1500, baseInterval * (1 + fileCount / 1000))
+      );
+
+      // Update progress bar at calculated rate
       progressInterval = setInterval(() => {
+        const elapsedTime = Date.now() - startTime;
+        const isFirstThirtySeconds = elapsedTime < 50000;
+
         setLoadingProgress((prev) => {
-          // Increase progress but cap at 90% until complete
-          const newProgress = prev + Math.random() * 5;
-          return Math.min(newProgress, 90);
+          // Very slow increment for first 30 seconds
+          if (isFirstThirtySeconds) {
+            // Extremely small increments during first 30 seconds
+            // Will reach ~15% after 30 seconds
+            const tinyIncrement = Math.random() * 0.1;
+            return Math.min(prev + tinyIncrement, 10);
+          } else {
+            const increment =
+              fileCount > 500
+                ? Math.random() * 2
+                : fileCount > 100
+                ? Math.random() * 3
+                : Math.random() * 5;
+
+            // Increase progress but cap at 90% until complete
+            const newProgress = prev + increment;
+            return Math.min(newProgress, 90);
+          }
         });
-      }, 800);
+      }, intervalAdjustment);
     }
 
     // Clean up intervals when component unmounts or organizing stops
@@ -93,6 +125,14 @@ export default function Dashboard() {
         ...prevState,
         selectedFolder: folderPath,
       }));
+      try {
+        const count = await invoke("count_files_in_folder", { folderPath });
+        console.log("count: ", count);
+        setFileCount(count);
+      } catch (error) {
+        console.error("Error getting file count:", error);
+        setFileCount(100);
+      }
     }
   };
 
@@ -112,6 +152,7 @@ export default function Dashboard() {
       }));
     }
   };
+
   async function StartOrganizerModel(folder_path) {
     let unlistenFn;
     try {
@@ -121,19 +162,14 @@ export default function Dashboard() {
       unlistenFn = await listen("organization_progress", (event) => {
         // Update progress based on event data
         switch (event.payload) {
-          case "Processing files":
-            setLoadingProgress(10);
-            print("TEst");
-            break;
-          case "Processing":
-            setLoadingProgress(30);
-            break;
-          case "Encoding":
-            setLoadingProgress(50);
-            break;
-          case "Organizing":
-            setLoadingProgress(70);
-            break;
+          case "Not enough files":
+            setIsOrganizing(false);
+            toast({
+              title: "Error",
+              description: `Not enough files in folder`,
+              variant: "destructive",
+            });
+            return;
           case "Completed":
             setLoadingProgress(90);
             break;
@@ -159,7 +195,6 @@ export default function Dashboard() {
       // Only now open the dialog browser
       setIsDialogBrowserOpen(true);
     } catch (error) {
-      console.error("Error running organize model:", error);
       toast({
         title: "Error",
         description: `Failed to organize files: ${error.message || error}`,
@@ -394,7 +429,7 @@ export default function Dashboard() {
           toast={toast}
         />
 
-        {/* Enhanced Loading Screen with Animation and Updating Text */}
+        {/* Enhanced Loading Screen with Animation, Updating Text*/}
         {isOrganizing && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-300">
             <div className="bg-background p-8 rounded-xl shadow-2xl flex flex-col items-center max-w-md w-full mx-4 border border-border/50">
@@ -427,7 +462,7 @@ export default function Dashboard() {
               </div>
 
               {/* Tips section */}
-              <div className="text-sm text-muted-foreground text-center mt-2 max-w-xs">
+              <div className="text-sm text-muted-foreground text-center mt-2 max-w-xs mb-6">
                 <p>
                   This process may take a few moments depending on the number of
                   files being organized.
