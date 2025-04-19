@@ -44,6 +44,7 @@ pub async fn organize_files_from_json(
     copy_or_move: String
 
 ) -> Result<(), String> {  
+    // Get json path in appdata
     let app_data_path = match app.path().app_data_dir() {
         Ok(path) => path.to_string_lossy().to_string(),
         Err(err) => {
@@ -54,6 +55,7 @@ pub async fn organize_files_from_json(
     let json_file_path_buf = Path::new(&app_data_path).join("Organization_Structure.json");
     let json_path = json_file_path_buf.to_string_lossy().to_string();
 
+    // Read json data
     let data = match fs::read_to_string(json_path) {
         Ok(content) => content,
         Err(e) => return Err(e.to_string()),
@@ -63,10 +65,11 @@ pub async fn organize_files_from_json(
         Ok(parsed) => parsed,
         Err(e) => return Err(e.to_string()),
     };
+
+    // Copy/Move the files to the designated 
     for item in items {
         let label_folder = format!("{}/label_{}", base_output, item.label);
         if let Err(e) = fs::create_dir_all(&label_folder) {
-            println!("ee{}",label_folder);
             return Err(e.to_string());
         }
         let src = Path::new(&item.path);
@@ -77,13 +80,11 @@ pub async fn organize_files_from_json(
         let dest = Path::new(&label_folder).join(filename);
         if copy_or_move.as_str() == "move"{
             if let Err(e) = fs::rename(&src, &dest) {
-                println!("err {}", e);
                 return Err(e.to_string());
             }
         }
         if copy_or_move.as_str() == "copy"{
             if let Err(e) = fs::copy(&src, &dest) {
-                println!("err {}", e);
                 return Err(e.to_string());
             }
         }
@@ -93,17 +94,6 @@ pub async fn organize_files_from_json(
 #[tauri::command]
 pub async fn run_organize_model(folder_path: String, app: tauri::AppHandle) -> Result<(), String> {
     // Check if a sidecar process already exists
-    println!("im the king");
-    let app_data_path = match app.path().app_data_dir() {
-        Ok(path) => path.to_string_lossy().to_string(),
-        Err(err) => {
-            eprintln!("Failed to get app data directory: {:?}", err);
-            return Err(format!("Failed to get app data directory: {:?}", err)); 
-        }
-    };
-    let json_file_path_buf = Path::new(&app_data_path).join("Organization_Structure.json");
-    let json_file_path = json_file_path_buf.to_string_lossy().to_string();
-
     if let Some(state) = app.try_state::<Arc<Mutex<Option<CommandChild>>>>() {
         let child_process = state.lock().unwrap();
         if child_process.is_some() {
@@ -113,7 +103,19 @@ pub async fn run_organize_model(folder_path: String, app: tauri::AppHandle) -> R
         }
     }
 
-    // Prepare the sidecar command
+    // Get json path in appdata
+    let app_data_path = match app.path().app_data_dir() {
+        Ok(path) => path.to_string_lossy().to_string(),
+        Err(err) => {
+            eprintln!("Failed to get app data directory: {:?}", err);
+            return Err(format!("Failed to get app data directory: {:?}", err)); 
+        }
+    };
+
+    let json_file_path_buf = Path::new(&app_data_path).join("Organization_Structure.json");
+    let json_file_path = json_file_path_buf.to_string_lossy().to_string();
+
+    // Run sidecar(python script)
     let sidecar_command = app.shell().sidecar("Organize_Folder").unwrap().args([&folder_path, &json_file_path]);
     let (mut rx, mut _child) = match sidecar_command.spawn() {
         Ok((rx, child)) => (rx, child),
@@ -122,7 +124,8 @@ pub async fn run_organize_model(folder_path: String, app: tauri::AppHandle) -> R
         
     let (tx, rx_complete) = tokio::sync::oneshot::channel::<Result<(), String>>();
     let app_clone = app.clone();
-    // Read the stdout from the sidecar process
+
+    // Read the outputs from the sidecar
     tauri::async_runtime::spawn(async move {
         let mut result = Ok(());
         
@@ -130,12 +133,12 @@ pub async fn run_organize_model(folder_path: String, app: tauri::AppHandle) -> R
             match event {
                 CommandEvent::Stdout(data) => {
                     let output_message = str::from_utf8(&data).unwrap();
-                    println!("print{}", output_message);
+                    println!("{}", output_message);
                 }
                 CommandEvent::Stderr(data) => {
                     let error_message = str::from_utf8(&data).unwrap();
                     
-                    //eprintln!("errror{}", error_message);
+                    eprintln!("-ERROR- {}", error_message.to_string());
                     
                     result = match error_message {
                         "Not enough files" => {
@@ -144,7 +147,7 @@ pub async fn run_organize_model(folder_path: String, app: tauri::AppHandle) -> R
                         },
                         msg if msg.to_lowercase().contains("futurewarning") || msg.to_lowercase().contains("deprecationwarning") || msg.to_lowercase().contains("warning") => {
                             println!("[Warning] {}", msg);
-                            result // Keep the current result value
+                            result 
                         },
                         _ => {
                             println!("{}", error_message.to_string());
@@ -153,13 +156,12 @@ pub async fn run_organize_model(folder_path: String, app: tauri::AppHandle) -> R
                     };
                 }
                 CommandEvent::Terminated(status) => {
-                    println!("Sidecar process terminated with status: {:?}", status);
+                    println!("Sidecar process exited with status: {:?}", status);
                     if let Some(code) = status.code {
                         if code != 0 {
                             result = Err(format!("Process exited with non-zero status: {}", code));
                         }
                     }
-                    
                     // Send completion status
                     let _ = tx.send(result);
                     break;
