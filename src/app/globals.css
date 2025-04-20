@@ -9,10 +9,10 @@ body {
 @layer base {
   :root {
     /* New color theme */
-    --primary-blue: 84, 119, 146; /* #547792 */
-    --secondary-blue: 148, 180, 193; /* #94B4C1 */
-    --accent-cream: 236, 239, 202; /* #ECEFCA */
-    --accent-green: 175, 214, 157; /* #AFD69D */
+    --primary-blue: 84, 119, 146; /*rgb(84, 119, 146) */
+    --secondary-blue: 148, 180, 193; /*rgb(148, 180, 193) */
+    --accent-cream: 236, 239, 202; /*rgb(236, 239, 202) */
+    --accent-green: 175, 214, 157; /*rgb(175, 214, 157) */
 
     /* Convert to light mode theme */
     --background: 0 0% 100%;
@@ -24,8 +24,8 @@ body {
     --popover: 0 0% 100%;
     --popover-foreground: 204 26% 45%;
 
-    --primary: 204 26% 45%; /* #547792 */
-    --primary-foreground: 0 0% 98%;
+    --primary: 157, 64.3%, 11%; /*hsl(157, 64.30%, 11.00%) */
+    --primary-foreground: 0 0% 98%; /*hsl(157, 64.30%, 11.00%) */
 
     --secondary: 197 31% 67%; /* #94B4C1 */
     --secondary-foreground: 204 26% 25%;
