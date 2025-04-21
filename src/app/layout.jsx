@@ -2,7 +2,6 @@
 
 import React, { createContext, useState } from "react";
 import "./globals.css";
-import "./theme-override.css";
 import { Sidebar } from "@/components/component/sidebar";
 import { Upperbar } from "@/components/component/upperbar";
 import { Toaster } from "@/components/ui/toaster";

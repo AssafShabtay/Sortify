@@ -216,7 +216,7 @@ export default function Dashboard() {
       <div className="p-4 md:p-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
           {/* ORGANIZE Block */}
-          <div className="bg-gray-100 rounded-lg border border-gray-300 p-4 md:p-6">
+          <div className="bg-green-20 rounded-lg border border-gray-300 p-4 md:p-6">
             <div className="space-y-4 md:space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold tracking-tight">ORGANIZE</h2>

@@ -16,7 +16,7 @@ body {
 
     /* Convert to light mode theme */
     --background: 0 0% 100%;
-    --foreground: 204 26% 45%; /* Based on #547792 */
+    --foreground: 207, 100%, 7.1%; /* Based on hsl(207, 100.00%, 7.10%) */
 
     --card: 0 0% 100%;
     --card-foreground: 204 26% 45%;
@@ -97,6 +97,14 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+.selection-box {
+  position: absolute;
+  border: 2px dashed var(--primary);
+  background-color: rgba(var(--primary), 0.1);
+  z-index: 50;
+  pointer-events: none;
 }
 
 .file-selected,

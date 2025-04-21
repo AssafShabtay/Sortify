@@ -643,16 +643,32 @@ export default function FolderBrowserDialog({
   }, []);
 
   // --- Box Selection Handlers --
-
+  // Updated createSelectionBox function for clipping
   const createSelectionBox = () => {
     const box = document.createElement("div");
     box.className =
-      "absolute border-2 border-dashed border-primary bg-primary/10 z-50 pointer-events-none";
+      "fixed border-2 border-dashed border-primary bg-primary/10 z-[1000] pointer-events-none";
     box.style.display = "none";
     box.id = "selection-box";
     return box;
   };
 
+  // Add a CSS helper function to add clip-path to document head
+  const addClipPathStyle = () => {
+    // Check if style already exists
+    if (document.getElementById("selection-box-clip-style")) return;
+
+    const style = document.createElement("style");
+    style.id = "selection-box-clip-style";
+    style.textContent = `
+    #selection-box.clipped {
+      clip-path: var(--clip-path);
+    }
+  `;
+    document.head.appendChild(style);
+  };
+
+  // Updated handleSelectionMouseDown with clipping logic
   const handleSelectionMouseDown = (e, folderId) => {
     // Set the active folder when clicking in it
     setCurrentFolderId(folderId);
@@ -667,103 +683,231 @@ export default function FolderBrowserDialog({
     }
 
     e.preventDefault(); // Prevent text selection
+
+    // Ensure clip-path style is added to document
+    addClipPathStyle();
+
+    // Get the file container and its scroll properties
     const container = fileContainerRefs.current[folderId];
     if (!container) return;
 
-    const rect = container.getBoundingClientRect();
-    const startX = e.clientX - rect.left;
-    const startY = e.clientY - rect.top;
+    // Get the scrollable parent - might be the container itself or a parent element
+    const scrollContainer = container;
 
-    // Direct DOM manipulation for the selection box
-    let selectionBoxElement = container.querySelector("#selection-box");
-    if (!selectionBoxElement) {
-      selectionBoxElement = createSelectionBox();
-      container.appendChild(selectionBoxElement);
+    // Track initial mouse position in client coordinates (relative to viewport)
+    const startClientX = e.clientX;
+    const startClientY = e.clientY;
+
+    // Track initial scroll position
+    const startScrollTop = scrollContainer.scrollTop;
+    const startScrollLeft = scrollContainer.scrollLeft;
+
+    // Create selection box and append it to document.body for absolute positioning
+    let selectionBoxElement = document.getElementById("selection-box");
+    if (selectionBoxElement) {
+      selectionBoxElement.remove(); // Remove any existing box
     }
+    selectionBoxElement = createSelectionBox();
+    document.body.appendChild(selectionBoxElement);
 
-    // Make the selection box visible
+    // Initially position the selection box at mouse position
     selectionBoxElement.style.display = "block";
-    selectionBoxElement.style.left = `${startX}px`;
-    selectionBoxElement.style.top = `${startY}px`;
+    selectionBoxElement.style.left = `${startClientX}px`;
+    selectionBoxElement.style.top = `${startClientY}px`;
     selectionBoxElement.style.width = "0";
     selectionBoxElement.style.height = "0";
+    selectionBoxElement.classList.add("clipped");
 
-    // Only set React state once to indicate selection is active
+    // For tracking selection state
     setIsSelecting(true);
 
-    // Set a local variable to track files that are selected
-    // We'll only update React state when selection is complete
+    // Track selected files
     const newlySelected = new Set(
       e.ctrlKey || e.shiftKey ? [...(selectedFiles[folderId] || [])] : []
     );
 
-    // Clear selection in React state if not using modifiers
+    // Clear selection if not using modifiers
     if (!e.ctrlKey && !e.shiftKey) {
       setSelectedFiles((prev) => ({ ...prev, [folderId]: new Set() }));
     }
 
-    // Keep track of files and their DOM elements for quick intersection testing
+    // Cache all file elements for intersection testing
     const filesInFolder = folderFiles[folderId] || [];
     const fileElements = [];
 
-    // Pre-compute file positions for faster intersection testing
+    // Get all file elements with their screen positions
     filesInFolder.forEach((file) => {
       const fileEl = fileRefs.current?.[folderId]?.[file.id];
       if (fileEl) {
-        const fileRect = fileEl.getBoundingClientRect();
         fileElements.push({
           id: file.id,
-          left: fileRect.left - rect.left,
-          top: fileRect.top - rect.top,
-          right: fileRect.left - rect.left + fileRect.width,
-          bottom: fileRect.top - rect.top + fileRect.height,
           element: fileEl,
         });
       }
     });
 
-    let animationFrameId;
-    let currentX, currentY;
+    // Animation frame ID for smooth selection
+    let animationFrameId = null;
 
-    const updateSelectionBox = () => {
-      if (!currentX || !currentY) return;
+    // Auto-scroll interval ID
+    let autoScrollIntervalId = null;
 
-      // Update selection box position
-      const selX = Math.min(startX, currentX);
-      const selY = Math.min(startY, currentY);
-      const selWidth = Math.abs(startX - currentX);
-      const selHeight = Math.abs(startY - currentY);
+    // Current mouse position (updated during mousemove)
+    let currentClientX = startClientX;
+    let currentClientY = startClientY;
 
-      selectionBoxElement.style.left = `${selX}px`;
-      selectionBoxElement.style.top = `${selY}px`;
-      selectionBoxElement.style.width = `${selWidth}px`;
-      selectionBoxElement.style.height = `${selHeight}px`;
+    // Auto-scroll parameters
+    const SCROLL_SPEED = 10;
+    const SCROLL_THRESHOLD = 50;
+    const SCROLL_INTERVAL = 16; // ms
 
-      // Efficiently check file intersections
-      // Use a Set for tracking current visible files to avoid visual flickering
+    // Start auto-scrolling if needed
+    const startAutoScroll = () => {
+      if (autoScrollIntervalId) return; // Already scrolling
+
+      autoScrollIntervalId = setInterval(() => {
+        const containerRect = container.getBoundingClientRect();
+
+        // Calculate if mouse is near container edges
+        const isNearTop = currentClientY < containerRect.top + SCROLL_THRESHOLD;
+        const isNearBottom =
+          currentClientY > containerRect.bottom - SCROLL_THRESHOLD;
+        const isNearLeft =
+          currentClientX < containerRect.left + SCROLL_THRESHOLD;
+        const isNearRight =
+          currentClientX > containerRect.right - SCROLL_THRESHOLD;
+
+        // Calculate how much to scroll
+        let scrollDeltaY = 0;
+        let scrollDeltaX = 0;
+
+        if (isNearTop && scrollContainer.scrollTop > 0) {
+          // Scroll up when near top edge
+          const intensity =
+            1 -
+            Math.max(
+              0,
+              (currentClientY - containerRect.top) / SCROLL_THRESHOLD
+            );
+          scrollDeltaY = -Math.ceil(SCROLL_SPEED * intensity);
+        } else if (
+          isNearBottom &&
+          scrollContainer.scrollTop <
+            scrollContainer.scrollHeight - scrollContainer.clientHeight
+        ) {
+          // Scroll down when near bottom edge
+          const intensity =
+            1 -
+            Math.max(
+              0,
+              (containerRect.bottom - currentClientY) / SCROLL_THRESHOLD
+            );
+          scrollDeltaY = Math.ceil(SCROLL_SPEED * intensity);
+        }
+
+        if (isNearLeft && scrollContainer.scrollLeft > 0) {
+          // Scroll left when near left edge
+          const intensity =
+            1 -
+            Math.max(
+              0,
+              (currentClientX - containerRect.left) / SCROLL_THRESHOLD
+            );
+          scrollDeltaX = -Math.ceil(SCROLL_SPEED * intensity);
+        } else if (
+          isNearRight &&
+          scrollContainer.scrollLeft <
+            scrollContainer.scrollWidth - scrollContainer.clientWidth
+        ) {
+          // Scroll right when near right edge
+          const intensity =
+            1 -
+            Math.max(
+              0,
+              (containerRect.right - currentClientX) / SCROLL_THRESHOLD
+            );
+          scrollDeltaX = Math.ceil(SCROLL_SPEED * intensity);
+        }
+
+        // Apply scrolling if needed
+        if (scrollDeltaY !== 0) {
+          scrollContainer.scrollTop += scrollDeltaY;
+        }
+
+        if (scrollDeltaX !== 0) {
+          scrollContainer.scrollLeft += scrollDeltaX;
+        }
+
+        // If we're scrolling, make sure to update the selection
+        if (scrollDeltaX !== 0 || scrollDeltaY !== 0) {
+          updateSelectionWithoutAnimationFrame();
+        }
+      }, SCROLL_INTERVAL);
+    };
+
+    // Update selection box and selected files
+    const updateSelection = () => {
+      // Get the current container bounds for clipping
+      const containerRect = container.getBoundingClientRect();
+
+      // Calculate selection box dimensions based on start and current positions
+      const left = Math.min(startClientX, currentClientX);
+      const top = Math.min(startClientY, currentClientY);
+      const width = Math.abs(startClientX - currentClientX);
+      const height = Math.abs(startClientY - currentClientY);
+
+      // Update selection box position (in viewport coordinates)
+      selectionBoxElement.style.left = `${left}px`;
+      selectionBoxElement.style.top = `${top}px`;
+      selectionBoxElement.style.width = `${width}px`;
+      selectionBoxElement.style.height = `${height}px`;
+
+      // Create clip-path to hide parts outside container
+      // Format: inset(top right bottom left)
+      const clipTop = Math.max(0, containerRect.top - top);
+      const clipRight = Math.max(0, left + width - containerRect.right);
+      const clipBottom = Math.max(0, top + height - containerRect.bottom);
+      const clipLeft = Math.max(0, containerRect.left - left);
+
+      // Apply clip-path
+      selectionBoxElement.style.setProperty(
+        "--clip-path",
+        `inset(${clipTop}px ${clipRight}px ${clipBottom}px ${clipLeft}px)`
+      );
+
+      // Calculate selection rectangle in viewport coordinates
+      const selectionRect = {
+        left: Math.max(left, containerRect.left),
+        top: Math.max(top, containerRect.top),
+        right: Math.min(left + width, containerRect.right),
+        bottom: Math.min(top + height, containerRect.bottom),
+      };
+
+      // Keep track of files that intersect with the selection
       const visibleInSelection = new Set();
 
+      // Test each file for intersection with selection rectangle
       fileElements.forEach((file) => {
+        const fileRect = file.element.getBoundingClientRect();
+
+        // Test for intersection using viewport coordinates
         const isIntersecting = !(
-          selX > file.right ||
-          file.left > selX + selWidth ||
-          selY > file.bottom ||
-          file.top > selY + selHeight
+          selectionRect.left > fileRect.right ||
+          fileRect.left > selectionRect.right ||
+          selectionRect.top > fileRect.bottom ||
+          fileRect.top > selectionRect.bottom
         );
 
-        // Set visual indicator through DOM directly
+        // Update visual selection state
         if (isIntersecting) {
           visibleInSelection.add(file.id);
-          if (!file.element.classList.contains("file-selected")) {
-            file.element.classList.add("file-selected");
-          }
+          file.element.classList.add("file-selected");
         } else if (!newlySelected.has(file.id)) {
-          // Only remove highlight if not in original selection
           file.element.classList.remove("file-selected");
         }
       });
 
-      // Store selected files for final state update, but don't update React state yet
+      // Update selection state (for both tracking and final state update)
       fileElements.forEach((file) => {
         if (visibleInSelection.has(file.id)) {
           newlySelected.add(file.id);
@@ -772,32 +916,116 @@ export default function FolderBrowserDialog({
         }
       });
 
-      animationFrameId = requestAnimationFrame(updateSelectionBox);
+      // Request next animation frame for smooth updates
+      animationFrameId = requestAnimationFrame(updateSelection);
     };
 
+    // Same as updateSelection but without requesting animation frame
+    // Used by auto-scroll to avoid duplicate animation frames
+    const updateSelectionWithoutAnimationFrame = () => {
+      const containerRect = container.getBoundingClientRect();
+
+      const left = Math.min(startClientX, currentClientX);
+      const top = Math.min(startClientY, currentClientY);
+      const width = Math.abs(startClientX - currentClientX);
+      const height = Math.abs(startClientY - currentClientY);
+
+      selectionBoxElement.style.left = `${left}px`;
+      selectionBoxElement.style.top = `${top}px`;
+      selectionBoxElement.style.width = `${width}px`;
+      selectionBoxElement.style.height = `${height}px`;
+
+      // Create clip-path to hide parts outside container
+      const clipTop = Math.max(0, containerRect.top - top);
+      const clipRight = Math.max(0, left + width - containerRect.right);
+      const clipBottom = Math.max(0, top + height - containerRect.bottom);
+      const clipLeft = Math.max(0, containerRect.left - left);
+
+      // Apply clip-path
+      selectionBoxElement.style.setProperty(
+        "--clip-path",
+        `inset(${clipTop}px ${clipRight}px ${clipBottom}px ${clipLeft}px)`
+      );
+
+      const selectionRect = {
+        left: Math.max(left, containerRect.left),
+        top: Math.max(top, containerRect.top),
+        right: Math.min(left + width, containerRect.right),
+        bottom: Math.min(top + height, containerRect.bottom),
+      };
+
+      const visibleInSelection = new Set();
+
+      fileElements.forEach((file) => {
+        const fileRect = file.element.getBoundingClientRect();
+
+        const isIntersecting = !(
+          selectionRect.left > fileRect.right ||
+          fileRect.left > selectionRect.right ||
+          selectionRect.top > fileRect.bottom ||
+          fileRect.top > selectionRect.bottom
+        );
+
+        if (isIntersecting) {
+          visibleInSelection.add(file.id);
+          file.element.classList.add("file-selected");
+        } else if (!newlySelected.has(file.id)) {
+          file.element.classList.remove("file-selected");
+        }
+      });
+
+      fileElements.forEach((file) => {
+        if (visibleInSelection.has(file.id)) {
+          newlySelected.add(file.id);
+        } else if (!e.ctrlKey && !e.shiftKey) {
+          newlySelected.delete(file.id);
+        }
+      });
+    };
+
+    // Handle mouse movement for selection
     const handleMouseMove = (moveEvent) => {
-      // Just update local variables, not React state
-      currentX = moveEvent.clientX - rect.left;
-      currentY = moveEvent.clientY - rect.top;
+      // Update current mouse position
+      currentClientX = moveEvent.clientX;
+      currentClientY = moveEvent.clientY;
+
+      // Check if we need to start auto-scrolling
+      const containerRect = container.getBoundingClientRect();
+      if (
+        currentClientX < containerRect.left + SCROLL_THRESHOLD ||
+        currentClientX > containerRect.right - SCROLL_THRESHOLD ||
+        currentClientY < containerRect.top + SCROLL_THRESHOLD ||
+        currentClientY > containerRect.bottom - SCROLL_THRESHOLD
+      ) {
+        startAutoScroll();
+      }
 
       // Start animation frame if not already running
       if (!animationFrameId) {
-        animationFrameId = requestAnimationFrame(updateSelectionBox);
+        animationFrameId = requestAnimationFrame(updateSelection);
       }
     };
 
+    // Handle mouse up to finalize selection
     const handleMouseUp = () => {
+      // Clean up auto-scroll interval
+      if (autoScrollIntervalId) {
+        clearInterval(autoScrollIntervalId);
+        autoScrollIntervalId = null;
+      }
+
       // Clean up animation frame
       if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
       }
 
-      // Hide selection box
+      // Remove selection box
       if (selectionBoxElement) {
-        selectionBoxElement.style.display = "none";
+        selectionBoxElement.remove();
       }
 
-      // Only now update React state with the final selection
+      // Update final selection state
       setSelectedFiles((prev) => ({ ...prev, [folderId]: newlySelected }));
       setIsSelecting(false);
 
@@ -810,6 +1038,362 @@ export default function FolderBrowserDialog({
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
   };
+
+  // Also update handleFileCardPointerDown with similar clipping logic
+  const handleFileCardPointerDown = (e, fileId, folderId) => {
+    // Set the active folder when clicking a file
+    setCurrentFolderId(folderId);
+
+    // Handle modifier key selection
+    if (e.metaKey || e.ctrlKey) {
+      setSelectedFiles((prev) => {
+        const folderSelection = new Set(prev[folderId] || []);
+        if (folderSelection.has(fileId)) {
+          folderSelection.delete(fileId);
+        } else {
+          folderSelection.add(fileId);
+        }
+        return { ...prev, [folderId]: folderSelection };
+      });
+      return;
+    }
+
+    // Ensure clip-path style is added
+    addClipPathStyle();
+
+    // Start selection drag
+    setIsSelecting(true);
+
+    // Get the file container
+    const container = fileContainerRefs.current[folderId];
+    if (!container) return;
+
+    // Get the scrollable parent
+    const scrollContainer = container;
+
+    // Track initial mouse position
+    const startClientX = e.clientX;
+    const startClientY = e.clientY;
+
+    // Create selection box and append to document.body
+    let selectionBoxElement = document.getElementById("selection-box");
+    if (selectionBoxElement) {
+      selectionBoxElement.remove();
+    }
+    selectionBoxElement = createSelectionBox();
+    document.body.appendChild(selectionBoxElement);
+
+    // Initially position the selection box
+    selectionBoxElement.style.display = "block";
+    selectionBoxElement.style.left = `${startClientX}px`;
+    selectionBoxElement.style.top = `${startClientY}px`;
+    selectionBoxElement.style.width = "0";
+    selectionBoxElement.style.height = "0";
+    selectionBoxElement.classList.add("clipped");
+
+    // Select the clicked file
+    const initialSelection = new Set([fileId]);
+    setSelectedFiles((prev) => ({ ...prev, [folderId]: initialSelection }));
+
+    // Mark the clicked file as selected
+    const fileEl = fileRefs.current?.[folderId]?.[fileId];
+    if (fileEl) {
+      fileEl.classList.add("file-selected");
+    }
+
+    // Cache all file elements
+    const fileElements = [];
+    const filesInFolder = folderFiles[folderId] || [];
+
+    filesInFolder.forEach((file) => {
+      const fileEl = fileRefs.current?.[folderId]?.[file.id];
+      if (fileEl) {
+        fileElements.push({
+          id: file.id,
+          element: fileEl,
+        });
+      }
+    });
+
+    // Animation and auto-scroll tracking
+    let animationFrameId = null;
+    let autoScrollIntervalId = null;
+    let currentClientX = startClientX;
+    let currentClientY = startClientY;
+    let finalSelection = new Set([fileId]);
+
+    // Auto-scroll parameters
+    const SCROLL_SPEED = 10;
+    const SCROLL_THRESHOLD = 50;
+    const SCROLL_INTERVAL = 16; // ms
+
+    // Start auto-scrolling if needed
+    const startAutoScroll = () => {
+      if (autoScrollIntervalId) return;
+
+      autoScrollIntervalId = setInterval(() => {
+        const containerRect = container.getBoundingClientRect();
+
+        // Calculate if mouse is near container edges
+        const isNearTop = currentClientY < containerRect.top + SCROLL_THRESHOLD;
+        const isNearBottom =
+          currentClientY > containerRect.bottom - SCROLL_THRESHOLD;
+        const isNearLeft =
+          currentClientX < containerRect.left + SCROLL_THRESHOLD;
+        const isNearRight =
+          currentClientX > containerRect.right - SCROLL_THRESHOLD;
+
+        // Calculate how much to scroll
+        let scrollDeltaY = 0;
+        let scrollDeltaX = 0;
+
+        if (isNearTop && scrollContainer.scrollTop > 0) {
+          // Scroll up
+          const intensity =
+            1 -
+            Math.max(
+              0,
+              (currentClientY - containerRect.top) / SCROLL_THRESHOLD
+            );
+          scrollDeltaY = -Math.ceil(SCROLL_SPEED * intensity);
+        } else if (
+          isNearBottom &&
+          scrollContainer.scrollTop <
+            scrollContainer.scrollHeight - scrollContainer.clientHeight
+        ) {
+          // Scroll down
+          const intensity =
+            1 -
+            Math.max(
+              0,
+              (containerRect.bottom - currentClientY) / SCROLL_THRESHOLD
+            );
+          scrollDeltaY = Math.ceil(SCROLL_SPEED * intensity);
+        }
+
+        if (isNearLeft && scrollContainer.scrollLeft > 0) {
+          // Scroll left
+          const intensity =
+            1 -
+            Math.max(
+              0,
+              (currentClientX - containerRect.left) / SCROLL_THRESHOLD
+            );
+          scrollDeltaX = -Math.ceil(SCROLL_SPEED * intensity);
+        } else if (
+          isNearRight &&
+          scrollContainer.scrollLeft <
+            scrollContainer.scrollWidth - scrollContainer.clientWidth
+        ) {
+          // Scroll right
+          const intensity =
+            1 -
+            Math.max(
+              0,
+              (containerRect.right - currentClientX) / SCROLL_THRESHOLD
+            );
+          scrollDeltaX = Math.ceil(SCROLL_SPEED * intensity);
+        }
+
+        // Apply scrolling
+        if (scrollDeltaY !== 0) {
+          scrollContainer.scrollTop += scrollDeltaY;
+        }
+
+        if (scrollDeltaX !== 0) {
+          scrollContainer.scrollLeft += scrollDeltaX;
+        }
+
+        // Update selection if we scrolled
+        if (scrollDeltaX !== 0 || scrollDeltaY !== 0) {
+          updateDragSelectionWithoutAnimationFrame();
+        }
+      }, SCROLL_INTERVAL);
+    };
+
+    // Update selection box and selected files
+    const updateDragSelection = () => {
+      // Get current container bounds for clipping
+      const containerRect = container.getBoundingClientRect();
+
+      // Calculate selection box dimensions
+      const left = Math.min(startClientX, currentClientX);
+      const top = Math.min(startClientY, currentClientY);
+      const width = Math.abs(startClientX - currentClientX);
+      const height = Math.abs(startClientY - currentClientY);
+
+      // Update selection box position
+      selectionBoxElement.style.left = `${left}px`;
+      selectionBoxElement.style.top = `${top}px`;
+      selectionBoxElement.style.width = `${width}px`;
+      selectionBoxElement.style.height = `${height}px`;
+
+      // Create clip-path to hide parts outside container
+      const clipTop = Math.max(0, containerRect.top - top);
+      const clipRight = Math.max(0, left + width - containerRect.right);
+      const clipBottom = Math.max(0, top + height - containerRect.bottom);
+      const clipLeft = Math.max(0, containerRect.left - left);
+
+      // Apply clip-path
+      selectionBoxElement.style.setProperty(
+        "--clip-path",
+        `inset(${clipTop}px ${clipRight}px ${clipBottom}px ${clipLeft}px)`
+      );
+
+      // Selection rectangle in viewport coordinates - clipped to container bounds
+      const selectionRect = {
+        left: Math.max(left, containerRect.left),
+        top: Math.max(top, containerRect.top),
+        right: Math.min(left + width, containerRect.right),
+        bottom: Math.min(top + height, containerRect.bottom),
+      };
+
+      // Test files for intersection
+      const visibleInSelection = new Set();
+
+      fileElements.forEach((file) => {
+        const fileRect = file.element.getBoundingClientRect();
+
+        const isIntersecting = !(
+          selectionRect.left > fileRect.right ||
+          fileRect.left > selectionRect.right ||
+          selectionRect.top > fileRect.bottom ||
+          fileRect.top > selectionRect.bottom
+        );
+
+        if (isIntersecting) {
+          visibleInSelection.add(file.id);
+          file.element.classList.add("file-selected");
+        } else {
+          file.element.classList.remove("file-selected");
+        }
+      });
+
+      // Update final selection
+      finalSelection = visibleInSelection;
+
+      // Request next frame
+      animationFrameId = requestAnimationFrame(updateDragSelection);
+    };
+
+    // Same as updateDragSelection but without requesting animation frame
+    const updateDragSelectionWithoutAnimationFrame = () => {
+      const containerRect = container.getBoundingClientRect();
+
+      const left = Math.min(startClientX, currentClientX);
+      const top = Math.min(startClientY, currentClientY);
+      const width = Math.abs(startClientX - currentClientX);
+      const height = Math.abs(startClientY - currentClientY);
+
+      selectionBoxElement.style.left = `${left}px`;
+      selectionBoxElement.style.top = `${top}px`;
+      selectionBoxElement.style.width = `${width}px`;
+      selectionBoxElement.style.height = `${height}px`;
+
+      // Create clip-path to hide parts outside container
+      const clipTop = Math.max(0, containerRect.top - top);
+      const clipRight = Math.max(0, left + width - containerRect.right);
+      const clipBottom = Math.max(0, top + height - containerRect.bottom);
+      const clipLeft = Math.max(0, containerRect.left - left);
+
+      // Apply clip-path
+      selectionBoxElement.style.setProperty(
+        "--clip-path",
+        `inset(${clipTop}px ${clipRight}px ${clipBottom}px ${clipLeft}px)`
+      );
+
+      const selectionRect = {
+        left: Math.max(left, containerRect.left),
+        top: Math.max(top, containerRect.top),
+        right: Math.min(left + width, containerRect.right),
+        bottom: Math.min(top + height, containerRect.bottom),
+      };
+
+      const visibleInSelection = new Set();
+
+      fileElements.forEach((file) => {
+        const fileRect = file.element.getBoundingClientRect();
+
+        const isIntersecting = !(
+          selectionRect.left > fileRect.right ||
+          fileRect.left > selectionRect.right ||
+          selectionRect.top > fileRect.bottom ||
+          fileRect.top > selectionRect.bottom
+        );
+
+        if (isIntersecting) {
+          visibleInSelection.add(file.id);
+          file.element.classList.add("file-selected");
+        } else {
+          file.element.classList.remove("file-selected");
+        }
+      });
+
+      finalSelection = visibleInSelection;
+    };
+
+    // Handle pointer movement
+    const handlePointerMove = (moveEvent) => {
+      // Update current position
+      currentClientX = moveEvent.clientX;
+      currentClientY = moveEvent.clientY;
+
+      // Check for auto-scroll
+      const containerRect = container.getBoundingClientRect();
+      if (
+        currentClientX < containerRect.left + SCROLL_THRESHOLD ||
+        currentClientX > containerRect.right - SCROLL_THRESHOLD ||
+        currentClientY < containerRect.top + SCROLL_THRESHOLD ||
+        currentClientY > containerRect.bottom - SCROLL_THRESHOLD
+      ) {
+        startAutoScroll();
+      }
+
+      // Start animation frame
+      if (!animationFrameId) {
+        animationFrameId = requestAnimationFrame(updateDragSelection);
+      }
+    };
+
+    // Handle pointer up
+    const handlePointerUp = () => {
+      // Clean up auto-scroll
+      if (autoScrollIntervalId) {
+        clearInterval(autoScrollIntervalId);
+        autoScrollIntervalId = null;
+      }
+
+      // Clean up animation frame
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+
+      // Remove selection box
+      if (selectionBoxElement) {
+        selectionBoxElement.remove();
+      }
+
+      // Update final selection
+      setSelectedFiles((prev) => ({
+        ...prev,
+        [folderId]: finalSelection,
+      }));
+
+      setIsSelecting(false);
+
+      // Clean up event listeners
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerUp);
+    };
+
+    // Add event listeners
+    document.addEventListener("pointermove", handlePointerMove);
+    document.addEventListener("pointerup", handlePointerUp);
+  };
+  // First, update the createSelectionBox function for better visibility and positioning
+
+  // Updated createSelectionBox to create a container-constrained selection box
 
   // Handle clicking directly on a file card
   const handleFileSelect = (folderId, fileId, options = {}) => {
@@ -834,7 +1418,6 @@ export default function FolderBrowserDialog({
     });
   };
 
-  // Replace the handleSaveChanges function with this updated version
   const handleSaveChanges = (copyOrMove) => {
     saveChanges(
       folderFiles,
@@ -850,162 +1433,6 @@ export default function FolderBrowserDialog({
       onOpenChange(false);
     }, 500);
   };
-
-  const handleFileCardPointerDown = (e, fileId, folderId) => {
-    // Set the active folder when clicking a file
-    setCurrentFolderId(folderId);
-
-    if (e.metaKey || e.ctrlKey) {
-      // Handle modifier key selection immediately
-      setSelectedFiles((prev) => {
-        const folderSelection = new Set(prev[folderId] || []);
-        if (folderSelection.has(fileId)) {
-          folderSelection.delete(fileId);
-        } else {
-          folderSelection.add(fileId);
-        }
-        return { ...prev, [folderId]: folderSelection };
-      });
-      return;
-    }
-
-    // Start selection drag
-    setIsSelecting(true);
-    const container = fileContainerRefs.current[folderId];
-    if (!container) return;
-
-    const rect = container.getBoundingClientRect();
-    const startX = e.clientX - rect.left;
-    const startY = e.clientY - rect.top;
-
-    // Create and position the selection box using DOM
-    let selectionBoxElement = container.querySelector("#selection-box");
-    if (!selectionBoxElement) {
-      selectionBoxElement = createSelectionBox();
-      container.appendChild(selectionBoxElement);
-    }
-
-    selectionBoxElement.style.display = "block";
-    selectionBoxElement.style.left = `${startX}px`;
-    selectionBoxElement.style.top = `${startY}px`;
-    selectionBoxElement.style.width = "0";
-    selectionBoxElement.style.height = "0";
-
-    // Select the clicked file
-    const initialSelection = new Set([fileId]);
-    setSelectedFiles((prev) => ({ ...prev, [folderId]: initialSelection }));
-
-    // Mark the clicked file as selected in the DOM
-    const fileEl = fileRefs.current?.[folderId]?.[fileId];
-    if (fileEl) {
-      fileEl.classList.add("file-selected");
-    }
-
-    // Pre-compute file elements and their positions
-    const fileElements = [];
-    const filesInFolder = folderFiles[folderId] || [];
-
-    filesInFolder.forEach((file) => {
-      const fileEl = fileRefs.current?.[folderId]?.[file.id];
-      if (fileEl) {
-        const fileRect = fileEl.getBoundingClientRect();
-        fileElements.push({
-          id: file.id,
-          left: fileRect.left - rect.left,
-          top: fileRect.top - rect.top,
-          right: fileRect.left - rect.left + fileRect.width,
-          bottom: fileRect.top - rect.top + fileRect.height,
-          element: fileEl,
-        });
-      }
-    });
-
-    let animationFrameId;
-    let currentX, currentY;
-    let finalSelection = new Set([fileId]);
-
-    const updateDragSelection = () => {
-      if (!currentX || !currentY) return;
-
-      // Update selection box position
-      const selX = Math.min(startX, currentX);
-      const selY = Math.min(startY, currentY);
-      const selWidth = Math.abs(startX - currentX);
-      const selHeight = Math.abs(startY - currentY);
-
-      selectionBoxElement.style.left = `${selX}px`;
-      selectionBoxElement.style.top = `${selY}px`;
-      selectionBoxElement.style.width = `${selWidth}px`;
-      selectionBoxElement.style.height = `${selHeight}px`;
-
-      // Track the files that are currently visible in selection
-      const visibleInSelection = new Set();
-
-      fileElements.forEach((file) => {
-        const isIntersecting = !(
-          selX > file.right ||
-          file.left > selX + selWidth ||
-          selY > file.bottom ||
-          file.top > selY + selHeight
-        );
-
-        // Apply visual selection immediately via DOM
-        if (isIntersecting) {
-          visibleInSelection.add(file.id);
-          if (!file.element.classList.contains("file-selected")) {
-            file.element.classList.add("file-selected");
-          }
-        } else {
-          file.element.classList.remove("file-selected");
-        }
-      });
-
-      // Store selection for final state update
-      finalSelection = visibleInSelection;
-
-      animationFrameId = requestAnimationFrame(updateDragSelection);
-    };
-
-    const handlePointerMove = (moveEvent) => {
-      // Just update tracking variables
-      currentX = moveEvent.clientX - rect.left;
-      currentY = moveEvent.clientY - rect.top;
-
-      // Start animation frame if not already running
-      if (!animationFrameId) {
-        animationFrameId = requestAnimationFrame(updateDragSelection);
-      }
-    };
-
-    const handlePointerUp = () => {
-      // Clean up animation frame
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-
-      // Hide selection box
-      if (selectionBoxElement) {
-        selectionBoxElement.style.display = "none";
-      }
-
-      // Update final selection in React state
-      setSelectedFiles((prev) => ({
-        ...prev,
-        [folderId]: finalSelection,
-      }));
-
-      setIsSelecting(false);
-
-      // Clean up event listeners
-      document.removeEventListener("pointermove", handlePointerMove);
-      document.removeEventListener("pointerup", handlePointerUp);
-    };
-
-    // Add event listeners
-    document.addEventListener("pointermove", handlePointerMove);
-    document.addEventListener("pointerup", handlePointerUp);
-  };
-
   // Normalize folder widths when resizing is complete
   useEffect(() => {
     if (resizingIndex === null && selectedFolderIds.length > 0) {

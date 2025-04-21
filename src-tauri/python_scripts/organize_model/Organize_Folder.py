@@ -28,6 +28,7 @@ _device = "cuda" if torch.cuda.is_available() else "cpu"
 
 folder_path = sys.argv[1]  
 output_json_path = sys.argv[2]
+
 # make the prints be in utf-8
 if sys.platform == 'win32':
     sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
@@ -299,8 +300,6 @@ def extract_file_summary(file_path):
 
         if text:
             translated_text = translator.translate(text[:500])
-            print(f"Translated text (first 200 chars): {translated_text[:200]} \n translated length is {len(translated_text)}")
-
             if translated_text:
                 return translated_text
                 summary = summarize_text(translated_text)
@@ -331,14 +330,13 @@ def process_directory(folder_path,max_workers=4):
             if os.path.isfile(file_path):
                 file_paths.append(file_path)
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         future_to_file = {executor.submit(extract_file_summary, file_path): file_path for file_path in file_paths}
         for future in concurrent.futures.as_completed(future_to_file):
             file_path = future_to_file[future]
             try:
                 summary_temp = future.result()
                 if summary_temp:
-                    print(f"Got summary for {file_path}")
                     summaries.append(summary_temp[:500])
             except Exception as e:
                 print(f"Error processing {file_path}: {e}")
@@ -346,7 +344,6 @@ def process_directory(folder_path,max_workers=4):
     if not summaries:
         return "No summaries were generated for this folder."
     combined_summary = " | ".join(filter(None, summaries))
-    print(f"Combined summary: {combined_summary[:200]}...")
 
     return combined_summary
     
@@ -450,9 +447,10 @@ X_reduced_plt = umap_model.fit_transform(X)
 np.random.seed(42)
 
 X_reduced = X_reduced.astype(np.float64)
+n_samples = X_reduced.shape[0]
 # Find best parameters
 def objective(trial):
-    n_samples = X_reduced.shape[0]
+    
     
     min_samples = trial.suggest_int("min_samples", 2 , 100 if n_samples >= 50 else n_samples - 1)
     min_cluster_size = trial.suggest_int("min_cluster_size", 2,  min(n_samples - 1, 15))
@@ -470,7 +468,7 @@ def objective(trial):
         p=p,
         cluster_selection_method="eom",
         prediction_data=True,
-        allow_single_cluster=True
+        allow_single_cluster=False
     )
 
     labels = clusterer.fit_predict(X_reduced)
