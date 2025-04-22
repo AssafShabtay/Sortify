@@ -81,7 +81,13 @@ export default function FolderBrowserDialog({
     handleFolderDragOver,
     handleFolderDragLeave,
     handleFolderDrop,
-  } = useDragDropHandlers(folderFiles, setFolderFiles, setHasChanges);
+  } = useDragDropHandlers(
+    folderFiles,
+    setFolderFiles,
+    setHasChanges,
+    folderData,
+    setFolderData
+  );
 
   // Reset cursor when component unmounts or dialog closes
   useEffect(() => {

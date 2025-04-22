@@ -11,7 +11,9 @@ import { writeTextFile, exists, mkdir } from "@tauri-apps/plugin-fs";
 export function useDragDropHandlers(
   folderFiles, //remove
   setFolderFiles,
-  setHasChanges
+  setHasChanges,
+  folderData,
+  setFolderData
 ) {
   const { toast } = useToast();
 
@@ -148,6 +150,33 @@ export function useDragDropHandlers(
 
       return newState;
     });
+
+    // Update folderData to reflect the new item counts
+    if (setFolderData) {
+      setFolderData((prev) => {
+        if (!Array.isArray(prev)) {
+          console.error("folderData is not an array:", prev);
+          return prev;
+        }
+
+        return prev.map((folder) => {
+          if (folder.id === sourceFolderId) {
+            // Decrease count for source folder
+            return {
+              ...folder,
+              itemCount: Math.max(0, folder.itemCount - draggedFiles.length),
+            };
+          } else if (folder.id === targetFolderId) {
+            // Increase count for target folder
+            return {
+              ...folder,
+              itemCount: folder.itemCount + draggedFiles.length,
+            };
+          }
+          return folder;
+        });
+      });
+    }
 
     toast({
       title: "Files moved",
