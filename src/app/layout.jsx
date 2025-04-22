@@ -6,7 +6,8 @@ import { Sidebar } from "@/components/component/sidebar";
 import { Upperbar } from "@/components/component/upperbar";
 import { Toaster } from "@/components/ui/toaster";
 
-export const Context = createContext([220, () => {}]);
+export const WidthContext = createContext([220, () => {}]);
+export const ThemeContext = createContext(["light", () => {}]);
 
 export default function RootLayout({ children }) {
   const [sidebarWidth, setSidebarWidth] = useState(220);
@@ -14,15 +15,13 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" style={{ borderRadius: "20px", overflow: "hidden" }}>
       <body className="antialiased">
-        <Context.Provider value={[sidebarWidth, setSidebarWidth]}>
+        <WidthContext.Provider value={[sidebarWidth, setSidebarWidth]}>
           <div className="flex flex-col min-h-screen">
-            <div className="flex flex-col">
-              <Upperbar />
-            </div>
-            <div className="flex flex-1" style={{ marginTop: "60px" }}>
+            <Upperbar />
+            <div className="flex flex-1 pt-10">
               <Sidebar />
               <main
-                className="flex-1"
+                className="flex-1 p-4"
                 style={{ marginLeft: `${sidebarWidth}px` }}
               >
                 {children}
@@ -30,7 +29,7 @@ export default function RootLayout({ children }) {
               </main>
             </div>
           </div>
-        </Context.Provider>
+        </WidthContext.Provider>
       </body>
     </html>
   );

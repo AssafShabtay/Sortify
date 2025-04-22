@@ -9,7 +9,11 @@
       "identifier": "shell:allow-execute",
       "allow": [
         {
-          "args": ["folder_path", "app_data_path"],
+          "args": [
+            "folder_path",
+            "app_data_path",
+            "treat_toplevel_folders_as_one"
+          ],
           "name": "Organize_Folder",
           "sidecar": true
         }

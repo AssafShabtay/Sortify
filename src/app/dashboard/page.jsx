@@ -29,6 +29,7 @@ export default function Dashboard() {
   const [organizeState, setOrganizeState] = useState({
     selectedFolder: "",
     useTargetAsOutput: true,
+    TreatToplevelFoldersAsOne: false,
     isOrganizeEnabledBackUp: true,
     removeDuplicates: false,
     excludeFolders: false,
@@ -55,12 +56,7 @@ export default function Dashboard() {
     let messageInterval;
     let progressInterval;
     let startTime;
-    setLoadingProgress((prev) => {
-      // Smaller increments for larger file counts
-      const increment = 0.1;
-      const newProgress = prev + increment;
-      return Math.min(newProgress, 90);
-    });
+
     if (isOrganizing) {
       startTime = Date.now();
       setLoadingMessage(loadingMessages[0]);
@@ -83,7 +79,7 @@ export default function Dashboard() {
       // Update progress bar at calculated rate
       progressInterval = setInterval(() => {
         const elapsedTime = Date.now() - startTime;
-        const isFirstThirtySeconds = elapsedTime < 50000;
+        const isFirstThirtySeconds = elapsedTime < 35000;
 
         setLoadingProgress((prev) => {
           // Very slow increment for first 30 seconds
@@ -112,11 +108,41 @@ export default function Dashboard() {
     return () => {
       clearInterval(messageInterval);
       clearInterval(progressInterval);
-      if (!isOrganizing) {
-        setLoadingProgress(100); // Set to 100% when complete
-      }
     };
-  }, [isOrganizing]);
+  }, [isOrganizing, fileCount]);
+
+  // Separate useEffect to handle the completion animation
+  useEffect(() => {
+    let smoothTransition;
+
+    // When organizing stops and progress is not yet 100%
+    if (!isOrganizing && loadingProgress > 0 && loadingProgress < 100) {
+      const currentProgress = loadingProgress;
+      const remainingProgress = 100 - currentProgress;
+      const duration = 2000; // 2 seconds
+      const startTime = Date.now();
+
+      smoothTransition = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const ratio = Math.min(elapsed / duration, 1);
+
+        // Use easeOutQuad for smoother ending
+        const easedRatio = ratio * (2 - ratio);
+        const newProgress = currentProgress + remainingProgress * easedRatio;
+
+        setLoadingProgress(newProgress);
+
+        if (elapsed >= duration) {
+          clearInterval(smoothTransition);
+          setLoadingProgress(100);
+        }
+      }, 16); // ~60fps
+    }
+
+    return () => {
+      if (smoothTransition) clearInterval(smoothTransition);
+    };
+  }, [isOrganizing, loadingProgress]);
 
   const handleSelectFolder = async () => {
     const folderPath = await open({ directory: true });
@@ -126,7 +152,10 @@ export default function Dashboard() {
         selectedFolder: folderPath,
       }));
       try {
-        const count = await invoke("count_files_in_folder", { folderPath });
+        const count = await invoke("count_files_in_folder", {
+          folderPath: folderPath,
+          treatToplevelFoldersAsOne: organizeState.TreatToplevelFoldersAsOne,
+        });
         console.log("count: ", count);
         setFileCount(count);
       } catch (error) {
@@ -153,12 +182,20 @@ export default function Dashboard() {
     }
   };
 
-  async function StartOrganizerModel(folder_path) {
+  async function StartOrganizerModel(folderPath) {
     let unlistenFn;
     try {
       setIsOrganizing(true); // Set loading state to true before starting
       setLoadingProgress(0); // Initialize progress at the beginning
 
+      if (fileCount < 6) {
+        toast({
+          title: "Error",
+          description: `Not enough files in folder`,
+          variant: "destructive",
+        });
+        return;
+      }
       unlistenFn = await listen("organization_progress", (event) => {
         // Update progress based on event data
         switch (event.payload) {
@@ -179,11 +216,15 @@ export default function Dashboard() {
         }
       });
       // Wait for the invoke to complete using await
-      await invoke("run_organize_model", { folderPath: folder_path });
+      await invoke("run_organize_model", {
+        folderPath: folderPath,
+        treatToplevelFoldersAsOne: organizeState.TreatToplevelFoldersAsOne,
+      });
 
       console.log("Completed");
 
       // Only proceed after the invoke is fully complete
+
       setLoadingProgress(100);
 
       toast({
@@ -267,6 +308,37 @@ export default function Dashboard() {
                     )}
                   </div>
                 )}
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Label className="pl-[0.1rem] font-semibold text-gray-700">
+                      Treat Top level Folders As One?
+                    </Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <FiInfo className="text-lg text-gray-600 cursor-pointer ml-[0.125rem]" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        If you choose this option, all files and folders inside
+                        the top level folder(the first set of folders and files
+                        you see inside) will be treated as one group.
+                        <br /> This means that the folders will be treated as a
+                        single group, without separating them. If you don’t
+                        choose it, every folder and file will be handled
+                        separately.
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Switch
+                    checked={organizeState.TreatToplevelFoldersAsOne}
+                    onCheckedChange={(value) =>
+                      handleOrganizeStateChange(
+                        "TreatToplevelFoldersAsOne",
+                        value
+                      )
+                    }
+                  />
+                </div>
                 <div className="flex items-center justify-between">
                   <Label className="pl-[0.1rem] font-semibold text-gray-700">
                     Remove duplicates? - not working
@@ -404,7 +476,7 @@ export default function Dashboard() {
                     }}
                     disabled={isOrganizing}
                   >
-                    {isOrganizing ? "Organizing..." : "Button"}
+                    {isOrganizing ? "Organizing..." : "Start Organizing!"}
                   </Button>
                 </div>
               </div>

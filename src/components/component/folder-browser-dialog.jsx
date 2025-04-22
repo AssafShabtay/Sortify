@@ -46,12 +46,6 @@ export default function FolderBrowserDialog({
   const [selectedFiles, setSelectedFiles] = useState({}); // Store selected file IDs per folder: { folderId: Set<fileId> }
   const [draggedItems, setDraggedItems] = useState(null); // Array of files being dragged
   const [selectionBox, setSelectionBox] = useState(null); // { startX, startY, currentX, currentY, folderId }
-  const [selectionRect, setSelectionRect] = useState({
-    x: 0,
-    y: 0,
-    width: 0,
-    height: 0,
-  });
   const [currentFolderId, setCurrentFolderId] = useState(null); // Currently active/focused folder
 
   const [selectedFolderIds, setSelectedFolderIds] = useState([]);
@@ -698,10 +692,6 @@ export default function FolderBrowserDialog({
     const startClientX = e.clientX;
     const startClientY = e.clientY;
 
-    // Track initial scroll position
-    const startScrollTop = scrollContainer.scrollTop;
-    const startScrollLeft = scrollContainer.scrollLeft;
-
     // Create selection box and append it to document.body for absolute positioning
     let selectionBoxElement = document.getElementById("selection-box");
     if (selectionBoxElement) {
@@ -757,7 +747,7 @@ export default function FolderBrowserDialog({
     let currentClientY = startClientY;
 
     // Auto-scroll parameters
-    const SCROLL_SPEED = 10;
+    const SCROLL_SPEED = 25;
     const SCROLL_THRESHOLD = 50;
     const SCROLL_INTERVAL = 16; // ms
 
@@ -1391,10 +1381,6 @@ export default function FolderBrowserDialog({
     document.addEventListener("pointermove", handlePointerMove);
     document.addEventListener("pointerup", handlePointerUp);
   };
-  // First, update the createSelectionBox function for better visibility and positioning
-
-  // Updated createSelectionBox to create a container-constrained selection box
-
   // Handle clicking directly on a file card
   const handleFileSelect = (folderId, fileId, options = {}) => {
     setSelectedFiles((prev) => {

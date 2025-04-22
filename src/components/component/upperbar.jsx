@@ -20,7 +20,10 @@ export function Upperbar() {
   }
 
   return (
-    <div className="upperbar" data-tauri-drag-region>
+    <div
+      className="upperbar fixed top-0 left-0 right-0 z-50 flex justify-between items-center border-b bg-background"
+      data-tauri-drag-region
+    >
       <div
         className="flex shrink-0 items-center px-6 h-10 flex-grow"
         data-tauri-drag-region

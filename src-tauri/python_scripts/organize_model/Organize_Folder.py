@@ -23,11 +23,24 @@ import textract
 import sys
 import codecs
 import json
-_device = "cuda" if torch.cuda.is_available() else "cpu"
+import random
+
+# Set all random seeds for deterministic behavior
+np.random.seed(42)
+random.seed(42)
+torch.manual_seed(42)
+torch.cuda.manual_seed_all(42)
+os.environ['PYTHONHASHSEED'] = '42'
+# Force deterministic behavior in PyTorch
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 
 
 folder_path = sys.argv[1]  
 output_json_path = sys.argv[2]
+toplevel_folders_as_one = sys.argv[3]
+print(toplevel_folders_as_one)
+treat_toplevel_folders_as_one = True if toplevel_folders_as_one == "true" else False
 
 # make the prints be in utf-8
 if sys.platform == 'win32':
@@ -330,7 +343,7 @@ def process_directory(folder_path,max_workers=4):
             if os.path.isfile(file_path):
                 file_paths.append(file_path)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers) as executor:
         future_to_file = {executor.submit(extract_file_summary, file_path): file_path for file_path in file_paths}
         for future in concurrent.futures.as_completed(future_to_file):
             file_path = future_to_file[future]
@@ -348,7 +361,7 @@ def process_directory(folder_path,max_workers=4):
     return combined_summary
     
 
-def run_model_organizer(folder_path, dict_as_one=False, max_workers=4):
+def run_model_organizer(folder_path, dict_as_one, max_workers=4):
     file_summaries = {}
     MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
     start_time = time.time()
@@ -405,7 +418,7 @@ def run_model_organizer(folder_path, dict_as_one=False, max_workers=4):
     return file_summaries
     
 
-file_summaries = run_model_organizer(folder_path)
+file_summaries = run_model_organizer(folder_path, treat_toplevel_folders_as_one)
 
 dataset = pd.DataFrame(
       [(path, data) for path, data in file_summaries.items()],
@@ -433,7 +446,7 @@ dataset['cleaned_texts'] = dataset['texts'].apply(clean_text)
 dataset = dataset[dataset['cleaned_texts'].str.len() > 3]
 cleaned_texts = dataset['cleaned_texts'].tolist()
 X = model.encode(cleaned_texts, convert_to_numpy=True)
-if len(X)<5:
+if len(X)<6:
     sys.stderr.write("Not enough files")
     sys.exit(1)
 
@@ -444,7 +457,6 @@ X_reduced = umap_model.fit_transform(X)
 umap_model = umap.UMAP(n_components=2, random_state=42)
 X_reduced_plt = umap_model.fit_transform(X)
 
-np.random.seed(42)
 
 X_reduced = X_reduced.astype(np.float64)
 n_samples = X_reduced.shape[0]
@@ -499,7 +511,7 @@ best_clusterer = hdbscan.HDBSCAN(
     p=best_params["p"],
     cluster_selection_method="eom",
     prediction_data=True,
-    allow_single_cluster=True
+    allow_single_cluster=False
 )
 
 labels = best_clusterer.fit_predict(X_reduced)

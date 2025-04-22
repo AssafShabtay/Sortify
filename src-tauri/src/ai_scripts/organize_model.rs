@@ -15,26 +15,45 @@ struct FileLabel {
     label: i32,
 }
 
+
 #[tauri::command]
-pub fn count_files_in_folder(folder_path: String)-> i32
-{
-    let extensions = vec!["pdf","docx" ,"txt" ,"doc" ,"tex" ,"epub"];
-    let path = Path::new(&folder_path);
+pub fn count_files_in_folder(folder_path: String, treat_toplevel_folders_as_one: bool) -> i32 {
+    let extensions = vec!["pdf", "docx", "txt", "doc", "tex", "epub"];
+    let path = Path::new(&folder_path); // Convert String to Path
     let mut count = 0;
+    let mut folder_count = 0;
 
     if path.is_dir() {
         if let Ok(entries) = fs::read_dir(path) {
             for entry in entries.flatten() {
-                if let Some(extension) = entry.path().extension() {
-                    if extensions.contains(&extension.to_str().unwrap_or("")) {
-                        count += 1;
+                let entry_path = entry.path();
+
+                if entry_path.is_dir() {
+                    let subdir_count = count_files_in_folder(entry_path.to_string_lossy().to_string(), false);
+                    
+                    if treat_toplevel_folders_as_one {
+                        if subdir_count > 0 {
+                            folder_count += 1;
+                        }
+                    } else {
+                        count += subdir_count;
+                    }
+                } else {
+                    // Check file extension
+                    if let Some(extension) = entry_path.extension() {
+                        if extensions.contains(&extension.to_str().unwrap_or("")) {
+                            count += 1;
+                        }
                     }
                 }
             }
         }
     }
-
-    count 
+    if treat_toplevel_folders_as_one {
+    return folder_count;
+    } else {
+        return count;
+    }
 }
 
 #[tauri::command]
@@ -92,7 +111,7 @@ pub async fn organize_files_from_json(
     Ok(())
 }
 #[tauri::command]
-pub async fn run_organize_model(folder_path: String, app: tauri::AppHandle) -> Result<(), String> {
+pub async fn run_organize_model(folder_path: String, treat_toplevel_folders_as_one: bool, app: tauri::AppHandle) -> Result<(), String> {
     // Check if a sidecar process already exists
     if let Some(state) = app.try_state::<Arc<Mutex<Option<CommandChild>>>>() {
         let child_process = state.lock().unwrap();
@@ -114,9 +133,10 @@ pub async fn run_organize_model(folder_path: String, app: tauri::AppHandle) -> R
 
     let json_file_path_buf = Path::new(&app_data_path).join("Organization_Structure.json");
     let json_file_path = json_file_path_buf.to_string_lossy().to_string();
+    let treat_toplevel_string = if treat_toplevel_folders_as_one { "true" } else { "false" };
 
     // Run sidecar(python script)
-    let sidecar_command = app.shell().sidecar("Organize_Folder").unwrap().args([&folder_path, &json_file_path]);
+    let sidecar_command = app.shell().sidecar("Organize_Folder").unwrap().args([&folder_path, &json_file_path, treat_toplevel_string]);
     let (mut rx, mut _child) = match sidecar_command.spawn() {
         Ok((rx, child)) => (rx, child),
         Err(e) => return Err(format!("Failed to spawn sidecar: {}", e)),

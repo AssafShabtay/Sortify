@@ -1,13 +1,13 @@
 .upperbar {
-    position: fixed; /* Fix the position at the top */
-    top: 0;          /* Align to the top */
-    left: 0;         /* Align to the left */
-    right: 0;        /* Align to the right */
-    z-index: 10;     /* Ensure it stays above other elements */
-    background-color: white; /* Set a background color */
-    border-bottom: 1px solid #e5e7eb; /* Same as your border color */
-    height: 60px;    /* Set a fixed height */
-    display: flex;    /* Flexbox for layout */
-    align-items: center; /* Center items vertically */
-    padding: 0;      /* Reset padding */
-  }
+  position: fixed; /* Fix the position at the top */
+  top: 0; /* Align to the top */
+  left: 0; /* Align to the left */
+  right: 0; /* Align to the right */
+  z-index: 10; /* Ensure it stays above other elements */
+  background-color: white; /* Set a background color */
+  border-bottom: 1px solid #e5e7eb; /* Same as your border color */
+  height: 60px; /* Set a fixed height */
+  display: flex; /* Flexbox for layout */
+  align-items: center; /* Center items vertically */
+  padding: 0; /* Reset padding */
+}
