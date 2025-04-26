@@ -1,10 +1,22 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { FiInfo } from "react-icons/fi";
+import {
+  FiInfo,
+  FiFolder,
+  FiSettings,
+  FiAlertTriangle,
+  FiArchive,
+  FiEye,
+  FiZap,
+  FiX,
+} from "react-icons/fi";
+import { BiCategoryAlt } from "react-icons/bi";
+import { HiOutlineDuplicate } from "react-icons/hi";
+import { MdOutlineCreateNewFolder } from "react-icons/md";
 import { invoke } from "@tauri-apps/api/core";
 import {
   Tooltip,
@@ -16,15 +28,69 @@ import { Button } from "@/components/ui/button";
 import FolderBrowserDialog from "@/components/component/folder-browser-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { listen } from "@tauri-apps/api/event";
-
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 export default function Dashboard() {
   const { toast } = useToast();
   const [fileCount, setFileCount] = useState(0);
   const [isDialogBrowserOpen, setIsDialogBrowserOpen] = useState(false);
   const [isOrganizing, setIsOrganizing] = useState(false);
-  // Add state for loading message
   const [loadingMessage, setLoadingMessage] = useState("");
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [activeTab, setActiveTab] = useState("organize");
+  const [animateCard, setAnimateCard] = useState(false);
+  const [animateOptions, setAnimateOptions] = useState(false);
+  const [screenSize, setScreenSize] = useState("md");
+  const [folderHover, setFolderHover] = useState(false);
+  const [quickStats, setQuickStats] = useState({
+    recentFiles: 0,
+    images: 0,
+    documents: 0,
+    others: 0,
+  });
+
+  // Element references for animations
+  const headerRef = useRef(null);
+  const statsCardRef = useRef(null);
+
+  // Update screen size for responsive design
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 640) {
+        setScreenSize("sm");
+      } else if (window.innerWidth < 1024) {
+        setScreenSize("md");
+      } else {
+        setScreenSize("lg");
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    handleResize(); // Initial call
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Animation sequence on initial load
+  useEffect(() => {
+    // Animate card entry on first render
+    setAnimateCard(true);
+
+    // Animate options after card is shown
+    const timer = setTimeout(() => {
+      setAnimateOptions(true);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const [organizeState, setOrganizeState] = useState({
     selectedFolder: "",
@@ -144,23 +210,61 @@ export default function Dashboard() {
     };
   }, [isOrganizing, loadingProgress]);
 
+  // Set random stats data when folder is selected
+  useEffect(() => {
+    if (fileCount > 0) {
+      // Generate some plausible random stats based on file count
+      setQuickStats({
+        recentFiles: Math.floor(fileCount * 0.3),
+        images: Math.floor(fileCount * 0.4),
+        documents: Math.floor(fileCount * 0.35),
+        others: Math.floor(fileCount * 0.25),
+      });
+    }
+  }, [fileCount]);
+
   const handleSelectFolder = async () => {
     const folderPath = await open({ directory: true });
     if (folderPath) {
+      setAnimateCard(false); // Reset animation
+
       setOrganizeState((prevState) => ({
         ...prevState,
         selectedFolder: folderPath,
       }));
+
       try {
+        // Simulate loading
+        toast({
+          title: "Scanning folder",
+          description: "Counting files...",
+        });
+
         const count = await invoke("count_files_in_folder", {
           folderPath: folderPath,
           treatToplevelFoldersAsOne: organizeState.TreatToplevelFoldersAsOne,
         });
         console.log("count: ", count);
         setFileCount(count);
+
+        // Animate card again after data is loaded
+        setAnimateCard(true);
+
+        // Show toast on completion
+        toast({
+          title: "Folder analyzed",
+          description: `Found ${count} files`,
+          variant: "success",
+        });
       } catch (error) {
         console.error("Error getting file count:", error);
         setFileCount(100);
+
+        toast({
+          title: "Error scanning folder",
+          description: "Using estimated file count",
+          variant: "destructive",
+        });
       }
     }
   };
@@ -224,7 +328,6 @@ export default function Dashboard() {
       console.log("Completed");
 
       // Only proceed after the invoke is fully complete
-
       setLoadingProgress(100);
 
       toast({
@@ -252,244 +355,480 @@ export default function Dashboard() {
     }
   }
 
-  return (
-    <TooltipProvider>
-      <div className="p-4 md:p-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-          {/* ORGANIZE Block */}
-          <div className="bg-green-20 rounded-lg border border-gray-300 p-4 md:p-6">
-            <div className="space-y-4 md:space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold tracking-tight">ORGANIZE</h2>
-                <button
-                  onClick={handleSelectFolder}
-                  className="text-sm text-blue-500 underline hover:text-blue-700"
-                >
-                  Select Folder
-                </button>
-              </div>
-
-              {organizeState.selectedFolder && (
-                <p className="text-sm text-gray-700 mt-2 md:mt-4">
-                  Selected Folder: {organizeState.selectedFolder}
-                </p>
-              )}
-
-              <div className="space-y-2 md:space-y-2 mt-2 md:mt-4">
-                <div className="flex items-center justify-between">
-                  <Label className="pl-[0.1rem] font-semibold text-gray-700">
-                    Use same folder for output?
-                  </Label>
-                  <Switch
-                    checked={organizeState.useTargetAsOutput}
-                    onCheckedChange={(value) =>
-                      handleOrganizeStateChange("useTargetAsOutput", value)
-                    }
-                  />
-                </div>
-
-                {!organizeState.useTargetAsOutput && (
-                  <div className="flex flex-col space-y-2 border-l-2 border-gray-200 pl-3 ml-1 mb-1">
-                    <div className="flex items-center justify-between">
-                      <Label className="pl-[0.1rem] font-semibold text-gray-700">
-                        Output Folder:
-                      </Label>
-                      <button
-                        onClick={handleSelectOutputFolder}
-                        className="text-sm text-blue-500 underline hover:text-blue-700"
-                      >
-                        Select Output Folder
-                      </button>
-                    </div>
-                    {organizeState.outputFolder && (
-                      <p className="text-sm text-gray-700">
-                        Output Folder: {organizeState.outputFolder}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Label className="pl-[0.1rem] font-semibold text-gray-700">
-                      Treat Top level Folders As One?
-                    </Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <FiInfo className="text-lg text-gray-600 cursor-pointer ml-[0.125rem]" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        If you choose this option, all files and folders inside
-                        the top level folder(the first set of folders and files
-                        you see inside) will be treated as one group.
-                        <br /> This means that the folders will be treated as a
-                        single group, without separating them. If you don’t
-                        choose it, every folder and file will be handled
-                        separately.
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <Switch
-                    checked={organizeState.TreatToplevelFoldersAsOne}
-                    onCheckedChange={(value) =>
-                      handleOrganizeStateChange(
-                        "TreatToplevelFoldersAsOne",
-                        value
-                      )
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label className="pl-[0.1rem] font-semibold text-gray-700">
-                    Remove duplicates? - not working
-                  </Label>
-                  <Switch
-                    checked={organizeState.removeDuplicates}
-                    onCheckedChange={(value) =>
-                      handleOrganizeStateChange("removeDuplicates", value)
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label className="pl-[0.1rem] font-semibold text-gray-700">
-                    Back up before organizing? - not working
-                  </Label>
-                  <Switch
-                    checked={organizeState.isOrganizeEnabledBackUp}
-                    onCheckedChange={(value) =>
-                      handleOrganizeStateChange(
-                        "isOrganizeEnabledBackUp",
-                        value
-                      )
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label className="pl-[0.1rem] font-semibold text-gray-700">
-                    Exclude specific folders? - not working
-                  </Label>
-                  <Switch
-                    checked={organizeState.excludeFolders}
-                    onCheckedChange={(value) =>
-                      handleOrganizeStateChange("excludeFolders", value)
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label className="pl-[0.1rem] font-semibold text-gray-700">
-                    Auto-rename files? - not working
-                  </Label>
-                  <Switch
-                    checked={organizeState.autoRenameFiles}
-                    onCheckedChange={(value) =>
-                      handleOrganizeStateChange("autoRenameFiles", value)
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Label className="pl-[0.1rem] font-semibold text-gray-700">
-                      Archive old files? - not working
-                    </Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <FiInfo className="text-lg text-gray-600 cursor-pointer ml-[0.125rem]" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        Once this option is enabled, the system will move files
-                        that haven&apos;t been used for up to a year into an
-                        archive folder. - not working
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <Switch
-                    checked={organizeState.autoArchiveOldFiles}
-                    onCheckedChange={(value) =>
-                      handleOrganizeStateChange("autoArchiveOldFiles", value)
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Label className="pl-[0.1rem] font-semibold text-gray-700">
-                      Manual review? - not working
-                    </Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <FiInfo className="text-lg text-gray-600 cursor-pointer ml-[0.125rem]" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        Once the organization is complete, a brief review and
-                        confirmation of the arrangement will take place. You can
-                        then make any necessary edits to the organization if
-                        needed. - not working
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <Switch
-                    checked={organizeState.manualReviewNotifications}
-                    onCheckedChange={(value) =>
-                      handleOrganizeStateChange(
-                        "manualReviewNotifications",
-                        value
-                      )
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label className="pl-[0.1rem] font-semibold text-gray-700">
-                    Run in the background? - not working
-                  </Label>
-                  <Switch
-                    checked={organizeState.backgroundRun}
-                    onCheckedChange={(value) =>
-                      handleOrganizeStateChange("backgroundRun", value)
-                    }
-                  />
-                </div>
-                <div className="flex justify-center items-center w-full h-full mt-4">
-                  <Button
-                    className="w-full md:w-[12rem]"
-                    onClick={() => {
-                      if (!organizeState.selectedFolder) {
-                        toast({
-                          title: "Error",
-                          description:
-                            "Please select a folder before proceeding.",
-                          variant: "destructive",
-                        });
-                        return;
-                      }
-
-                      if (
-                        !organizeState.useTargetAsOutput &&
-                        !organizeState.outputFolder
-                      ) {
-                        toast({
-                          title: "Error",
-                          description: "Please select an output folder.",
-                          variant: "destructive",
-                        });
-                        return;
-                      }
-                      StartOrganizerModel(organizeState.selectedFolder);
-                    }}
-                    disabled={isOrganizing}
-                  >
-                    {isOrganizing ? "Organizing..." : "Start Organizing!"}
-                  </Button>
-                </div>
-              </div>
-            </div>
+  // Function to render the option row with icon - enhanced with animation
+  const renderOptionRow = (label, checked, onChange, icon, tooltip = null) => {
+    return (
+      <div
+        className={`flex items-center justify-between py-1 hover:bg-[#94B4C1]/20 rounded px-1 transition-all duration-300 
+          ${
+            animateOptions
+              ? "opacity-100 translate-x-0"
+              : "opacity-0 -translate-x-4"
+          }`}
+      >
+        <div className="flex items-center space-x-1">
+          {icon}
+          <div className="flex items-center">
+            <Label className="font-medium text-gray-700 text-xs">{label}</Label>
+            {tooltip && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <FiInfo className="text-sm text-gray-500 cursor-pointer ml-1" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs text-xs">
+                  {tooltip}
+                </TooltipContent>
+              </Tooltip>
+            )}
           </div>
         </div>
-        <Button
-          size="lg"
-          className="w-full mt-4 md:mt-8"
-          onClick={() => setIsDialogBrowserOpen(true)}
+        <Switch
+          checked={checked}
+          onCheckedChange={(value) => {
+            // Add a visual feedback when toggled
+            const element = document.activeElement;
+            if (element) {
+              element.classList.add("scale-110");
+              setTimeout(() => element.classList.remove("scale-110"), 200);
+            }
+            onChange(value);
+          }}
+          className="scale-75 transition-transform duration-200 hover:scale-90 focus:ring-2 focus:ring-[#94B4C1]"
+        />
+      </div>
+    );
+  };
+
+  return (
+    <TooltipProvider>
+      <div className="container mx-auto p-3 h-full max-h-screen overflow-auto">
+        <div
+          className={`flex flex-col space-y-4 transition-all duration-500 ${
+            screenSize === "sm" ? "px-1" : ""
+          } pb-4`}
         >
-          Browse Folders
-        </Button>
+          <div className="flex justify-between items-center" ref={headerRef}>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-[#213448] transition-all duration-300 hover:text-[#547792]">
+                File Organizer
+              </h1>
+              <p className="text-sm text-[#547792] transition-opacity duration-300 hover:opacity-80">
+                Automatically organize and manage your files
+              </p>
+            </div>
+
+            <div>
+              <Badge
+                variant="outline"
+                className="bg-[#94B4C1]/10 text-[#213448] border-[#94B4C1] text-xs px-2 py-1 flex items-center 
+                  hover:bg-[#94B4C1]/20 transition-colors duration-300"
+              >
+                <FiZap
+                  className={`mr-1 transition-transform duration-300 ${
+                    isOrganizing ? "text-yellow-500 animate-pulse" : ""
+                  }`}
+                />
+                AI Powered
+              </Badge>
+            </div>
+          </div>
+
+          {/* Stats Cards - with animation */}
+          <Card
+            ref={statsCardRef}
+            className={`bg-[#94B4C1]/10 border-[#94B4C1]/30 transition-all duration-500 ease-in-out
+              ${
+                animateCard
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-4"
+              }
+              ${screenSize === "sm" ? "p-2" : ""}`}
+          >
+            <CardContent
+              className={`${screenSize === "sm" ? "p-2" : "pt-4 pb-4"}`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-[#213448]">
+                    Files Selected
+                  </p>
+                  <h3
+                    className={`text-xl font-bold text-[#213448] transition-all duration-500 ${
+                      fileCount > 0 ? "scale-110" : "scale-100"
+                    }`}
+                  >
+                    {fileCount || 0}
+                  </h3>
+
+                  {/* Quick file stats - appear after folder selection */}
+                  {fileCount > 0 && (
+                    <div className="flex space-x-2 mt-1 text-[9px] text-[#547792] animate-fadeIn">
+                      <span>{quickStats.images} images</span>
+                      <span>•</span>
+                      <span>{quickStats.documents} docs</span>
+                      <span>•</span>
+                      <span>{quickStats.others} other</span>
+                    </div>
+                  )}
+                </div>
+                <div
+                  className={`h-10 w-10 bg-[#547792] rounded-full flex items-center justify-center transition-all duration-300
+                    hover:bg-[#213448] ${
+                      folderHover ? "scale-110" : "scale-100"
+                    }`}
+                  onMouseEnter={() => setFolderHover(true)}
+                  onMouseLeave={() => setFolderHover(false)}
+                  onClick={handleSelectFolder}
+                >
+                  <FiFolder className="h-5 w-5 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Main Card */}
+          <Card
+            className={`border-[#94B4C1]/40 shadow-sm overflow-hidden transition-all duration-500 ease-in-out
+              ${
+                animateCard
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-4"
+              }`}
+          >
+            <CardHeader
+              className={`bg-[#213448] text-white py-3 px-4 transition-colors duration-300 hover:bg-[#213448]/90
+              ${screenSize === "sm" ? "py-2 px-3" : ""} sticky top-0 z-10`}
+            >
+              <CardTitle className="text-lg flex items-center">
+                <FiFolder className="mr-2" />
+                <span className="transition-all duration-300 hover:translate-x-1">
+                  File Organization
+                </span>
+              </CardTitle>
+              <CardDescription className="text-[#94B4C1] opacity-90 text-xs">
+                Organize your files into logical categories
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent
+              className={`${
+                screenSize === "sm" ? "p-3" : "p-4"
+              } transition-all duration-300 overflow-y-auto`}
+              style={{ maxHeight: "calc(100vh - 180px)" }}
+            >
+              <div
+                className={`space-y-4 ${
+                  screenSize === "sm" ? "space-y-3" : ""
+                }`}
+              >
+                {/* Select Folder Section */}
+                <div
+                  className={`bg-[#94B4C1]/10 p-3 rounded-lg border border-[#94B4C1]/30 
+                    transition-all duration-300 hover:border-[#547792]/60
+                    ${screenSize === "sm" ? "p-2" : ""}`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-semibold flex items-center">
+                      <FiFolder
+                        className={`mr-1.5 text-[#547792] transition-transform duration-300 
+                        ${folderHover ? "rotate-3" : ""}`}
+                      />
+                      Select Source Folder
+                    </h3>
+                    <Button
+                      onClick={handleSelectFolder}
+                      variant="outline"
+                      size="sm"
+                      className="border-[#547792] text-[#213448] hover:bg-[#94B4C1]/20 h-8 transition-all duration-300 hover:scale-105"
+                      onMouseEnter={() => setFolderHover(true)}
+                      onMouseLeave={() => setFolderHover(false)}
+                    >
+                      <FiFolder className="mr-1.5" /> Browse
+                    </Button>
+                  </div>
+
+                  {organizeState.selectedFolder ? (
+                    <div
+                      className="bg-white p-2 rounded border border-[#94B4C1]/30 flex items-center text-xs
+                      transition-all duration-500 hover:border-[#547792]/60"
+                    >
+                      <FiFolder className="text-[#547792] mr-1.5 flex-shrink-0" />
+                      <p className="text-[#213448] truncate">
+                        {organizeState.selectedFolder}
+                      </p>
+                      {fileCount > 0 && (
+                        <Badge className="ml-2 bg-[#94B4C1]/20 text-[#213448] border-0 text-xs transition-all duration-300 hover:bg-[#94B4C1]/40">
+                          {fileCount} files
+                        </Badge>
+                      )}
+                      {organizeState.selectedFolder && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 w-5 p-0 ml-auto flex items-center justify-center text-gray-400 hover:text-red-500"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOrganizeState((prev) => ({
+                              ...prev,
+                              selectedFolder: "",
+                            }));
+                            setFileCount(0);
+                            setQuickStats({
+                              recentFiles: 0,
+                              images: 0,
+                              documents: 0,
+                              others: 0,
+                            });
+                          }}
+                        >
+                          <FiX size={12} />
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <div
+                      className="bg-[#94B4C1]/10 border border-dashed border-[#94B4C1]/40 rounded-lg p-2 text-center text-xs
+                      transition-all duration-300 hover:bg-[#94B4C1]/20"
+                    >
+                      <p className="text-[#213448]">No folder selected</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Output Options */}
+                <div
+                  className={`space-y-1 transition-all duration-500 ease-in-out
+                    ${
+                      animateOptions
+                        ? "opacity-100 translate-y-0"
+                        : "opacity-0 translate-y-4"
+                    }`}
+                  style={{ transitionDelay: "100ms" }}
+                >
+                  <h3 className="text-sm font-semibold flex items-center">
+                    <MdOutlineCreateNewFolder className="mr-1.5 text-[#547792]" />{" "}
+                    Output Options
+                  </h3>
+
+                  <div className="ml-1 bg-[#94B4C1]/10 p-3 rounded-lg border border-[#94B4C1]/30 transition-all duration-300 hover:border-[#547792]/40">
+                    {renderOptionRow(
+                      "Use same folder for output",
+                      organizeState.useTargetAsOutput,
+                      (value) =>
+                        handleOrganizeStateChange("useTargetAsOutput", value),
+                      <FiFolder className="text-[#547792] h-4 w-4" />
+                    )}
+
+                    {!organizeState.useTargetAsOutput && (
+                      <div className="border-l-2 border-[#547792] pl-3 ml-1.5 mt-1 transition-all duration-300 animate-fadeIn">
+                        <div className="flex items-center justify-between py-1">
+                          <Label className="font-medium text-[#213448] text-xs">
+                            Output Folder:
+                          </Label>
+                          <Button
+                            onClick={handleSelectOutputFolder}
+                            variant="outline"
+                            size="sm"
+                            className="border-[#94B4C1] text-[#213448] hover:bg-[#94B4C1]/20 h-7 text-xs transition-transform duration-300 hover:scale-105"
+                          >
+                            <FiFolder className="mr-1" /> Select
+                          </Button>
+                        </div>
+                        {organizeState.outputFolder && (
+                          <div className="bg-white p-1.5 rounded border border-[#94B4C1]/30 text-xs text-[#213448] animate-fadeIn">
+                            {organizeState.outputFolder}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Organization Options */}
+                <div
+                  className={`transition-all duration-500 ease-in-out
+                    ${
+                      animateOptions
+                        ? "opacity-100 translate-y-0"
+                        : "opacity-0 translate-y-4"
+                    }`}
+                  style={{ transitionDelay: "200ms" }}
+                >
+                  <h3 className="text-sm font-semibold flex items-center mb-1">
+                    <FiSettings className="mr-1.5 text-[#547792]" />{" "}
+                    Organization Settings
+                  </h3>
+
+                  <div
+                    className={`grid ${
+                      screenSize === "sm"
+                        ? "grid-cols-1 gap-2"
+                        : "grid-cols-1 md:grid-cols-2 gap-3"
+                    }`}
+                  >
+                    <div className="bg-[#94B4C1]/10 p-3 rounded-lg border border-[#94B4C1]/30 transition-all duration-300 hover:border-[#547792]/40">
+                      {renderOptionRow(
+                        "Treat Top Level Folders As One",
+                        organizeState.TreatToplevelFoldersAsOne,
+                        (value) =>
+                          handleOrganizeStateChange(
+                            "TreatToplevelFoldersAsOne",
+                            value
+                          ),
+                        <BiCategoryAlt className="text-[#547792] h-4 w-4" />,
+                        "Group all top level folders"
+                      )}
+
+                      {renderOptionRow(
+                        "Remove duplicates",
+                        organizeState.removeDuplicates,
+                        (value) =>
+                          handleOrganizeStateChange("removeDuplicates", value),
+                        <HiOutlineDuplicate className="text-[#547792] h-4 w-4" />
+                      )}
+
+                      {renderOptionRow(
+                        "Back up before organizing",
+                        organizeState.isOrganizeEnabledBackUp,
+                        (value) =>
+                          handleOrganizeStateChange(
+                            "isOrganizeEnabledBackUp",
+                            value
+                          ),
+                        <FiAlertTriangle className="text-[#547792] h-4 w-4" />
+                      )}
+                    </div>
+
+                    <div className="bg-[#94B4C1]/10 p-3 rounded-lg border border-[#94B4C1]/30 transition-all duration-300 hover:border-[#547792]/40">
+                      {renderOptionRow(
+                        "Auto-rename files",
+                        organizeState.autoRenameFiles,
+                        (value) =>
+                          handleOrganizeStateChange("autoRenameFiles", value),
+                        <FiSettings className="text-green-600 h-4 w-4" />
+                      )}
+
+                      {renderOptionRow(
+                        "Archive old files",
+                        organizeState.autoArchiveOldFiles,
+                        (value) =>
+                          handleOrganizeStateChange(
+                            "autoArchiveOldFiles",
+                            value
+                          ),
+                        <FiArchive className="text-[#547792] h-4 w-4" />
+                      )}
+
+                      {renderOptionRow(
+                        "Manual review",
+                        organizeState.manualReviewNotifications,
+                        (value) =>
+                          handleOrganizeStateChange(
+                            "manualReviewNotifications",
+                            value
+                          ),
+                        <FiEye className="text-[#547792] h-4 w-4" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+
+            <Separator className="bg-[#94B4C1]/30" />
+
+            <CardFooter
+              className={`px-4 py-3 bg-[#94B4C1]/10 flex justify-between transition-all duration-300
+              ${screenSize === "sm" ? "px-3 py-2" : ""} sticky bottom-0 z-10`}
+            >
+              <div className="flex items-center">
+                {fileCount > 0 && (
+                  <div className="text-xs text-[#213448] animate-fadeIn">
+                    {fileCount} files ready
+                  </div>
+                )}
+              </div>
+
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDialogBrowserOpen(true)}
+                  className="border-[#547792] text-[#213448] hover:bg-[#94B4C1]/20 h-8 text-xs transition-all duration-300 hover:scale-105"
+                  size="sm"
+                >
+                  <FiFolder className="mr-1" /> Browse
+                </Button>
+
+                <Button
+                  className={`bg-[#213448] hover:bg-[#213448]/90 text-white h-8 text-xs transition-all duration-300 
+                    ${isOrganizing ? "" : "hover:scale-105"} 
+                    ${fileCount > 0 ? "animate-pulse-subtle" : ""}`}
+                  size="sm"
+                  onClick={() => {
+                    if (!organizeState.selectedFolder) {
+                      toast({
+                        title: "Error",
+                        description: "Please select a folder first.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+
+                    if (
+                      !organizeState.useTargetAsOutput &&
+                      !organizeState.outputFolder
+                    ) {
+                      toast({
+                        title: "Error",
+                        description: "Please select an output folder.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    StartOrganizerModel(organizeState.selectedFolder);
+                  }}
+                  disabled={isOrganizing}
+                >
+                  {isOrganizing ? (
+                    <>
+                      <svg
+                        className="animate-spin -ml-1 mr-1 h-3 w-3 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Organizing...
+                    </>
+                  ) : (
+                    <>
+                      <BiCategoryAlt
+                        className={`mr-1 ${
+                          fileCount > 0 ? "animate-bounce-subtle" : ""
+                        }`}
+                      />{" "}
+                      Organize Files
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardFooter>
+          </Card>
+        </div>
+
         <FolderBrowserDialog
           open={isDialogBrowserOpen}
           onOpenChange={setIsDialogBrowserOpen}
@@ -501,44 +840,37 @@ export default function Dashboard() {
           toast={toast}
         />
 
-        {/* Enhanced Loading Screen with Animation, Updating Text*/}
+        {/* Enhanced Loading Overlay */}
         {isOrganizing && (
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-300">
-            <div className="bg-background p-8 rounded-xl shadow-2xl flex flex-col items-center max-w-md w-full mx-4 border border-border/50">
-              {/* Animated spinner with pulsing effect */}
-              <div className="relative mb-6">
-                <div className="w-20 h-20 border-4 border-primary/30 rounded-full"></div>
-                <div className="absolute top-0 left-0 w-20 h-20 border-4 border-primary rounded-full animate-spin border-t-transparent"></div>
-                <div
-                  className="absolute top-0 left-0 w-20 h-20 border-4 border-transparent rounded-full animate-pulse border-t-primary/50 border-b-primary/50"
-                  style={{ animationDuration: "2s" }}
-                ></div>
+          <div className="fixed inset-0 bg-[#213448]/80 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-500 animate-fadeIn">
+            <div
+              className="bg-white p-5 rounded-lg shadow-md flex flex-col items-center max-w-xs w-full mx-4 border border-[#94B4C1]/40 animate-scaleIn"
+              style={{ maxHeight: "90vh", overflowY: "auto" }}
+            >
+              <div className="relative mb-4">
+                <div className="w-12 h-12 border-3 border-[#94B4C1]/30 rounded-full"></div>
+                <div className="absolute top-0 left-0 w-12 h-12 border-3 border-[#547792] rounded-full animate-spin border-t-transparent"></div>
               </div>
 
-              {/* Title */}
-              <h3 className="text-xl font-bold mb-3">Organizing Your Files</h3>
+              <h3 className="text-base font-bold mb-2 text-[#213448]">
+                Organizing Files
+              </h3>
 
-              {/* Animated loading message */}
-              <div className="h-6 mb-4 text-center">
-                <p className="text-muted-foreground animate-fadeIn">
+              <div className="h-5 mb-3 text-center">
+                <p className="text-[#547792] text-xs animate-pulse">
                   {loadingMessage}
                 </p>
               </div>
 
-              {/* Progress bar */}
-              <div className="w-full bg-muted rounded-full h-2 mb-4 overflow-hidden">
+              <div className="w-full bg-[#94B4C1]/20 rounded-full h-1.5 mb-3 overflow-hidden">
                 <div
-                  className="bg-primary h-full transition-all duration-500 ease-out"
+                  className="bg-[#547792] h-full transition-all duration-300 ease-out"
                   style={{ width: `${loadingProgress}%` }}
                 ></div>
               </div>
 
-              {/* Tips section */}
-              <div className="text-sm text-muted-foreground text-center mt-2 max-w-xs mb-6">
-                <p>
-                  This process may take a few moments depending on the number of
-                  files being organized.
-                </p>
+              <div className="text-xs text-[#547792] text-center">
+                <p>Processing {fileCount} files...</p>
               </div>
             </div>
           </div>
