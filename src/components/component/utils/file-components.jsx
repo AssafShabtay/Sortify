@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import React from "react";
+import { open } from "@tauri-apps/plugin-fs";
 //import { PdfIcon, DocxIcon } from "@/components/ui/icons/file_icons";
 // File card - fix the styling to look better in the folder
 export function FileCard({
@@ -203,7 +204,21 @@ export function FileCard({
 
     console.log("File drag end - cursor reset");
   };
-
+  const openFile = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    //const file = await open('foo/bar.txt', {
+    //read: true,
+    //baseDir: BaseDirectory.AppData,
+    //});
+    //
+    //const stat = await file.stat();
+    //const buf = new Uint8Array(stat.size);
+    //await file.read(buf);
+    //const textContents = new TextDecoder().decode(buf);
+    //await file.close();
+    console.log(`File open handler not provided for: ${file.name}`);
+  };
   // Micro view for very small widths
   if (displayMode === "micro") {
     return (
@@ -218,8 +233,8 @@ export function FileCard({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onClick={(e) => onClick && onClick(e)}
-        onDoubleClick={(e) => console.log(e)}
         data-file-id={file.id}
+        onDoubleClick={openFile}
       >
         <div className="flex flex-col items-center text-center">
           <div className="relative flex-shrink-0">
@@ -256,6 +271,7 @@ export function FileCard({
         onDragEnd={handleDragEnd}
         onClick={(e) => onClick && onClick(e)}
         data-file-id={file.id}
+        onDoubleClick={openFile}
       >
         <div className="flex flex-col items-center text-center gap-1">
           <div className="relative flex-shrink-0">
@@ -291,6 +307,7 @@ export function FileCard({
       onDragEnd={handleDragEnd}
       onClick={(e) => onClick && onClick(e)}
       data-file-id={file.id}
+      onDoubleClick={openFile}
     >
       <div className="flex items-center gap-3">
         <div className="flex-shrink-0">{getFileIcon()}</div>
