@@ -1882,12 +1882,12 @@ export default function FolderBrowserDialog({
                         <div
                           className={cn(
                             "border rounded-md flex flex-col relative h-full overflow-hidden",
-                            dragOverFolderId === folderId
-                              ? "ring-2 ring-primary bg-accent/50"
-                              : "",
-                            currentFolderId === folderId
-                              ? "ring-1 ring-primary"
-                              : ""
+                            {
+                              "ring-2 ring-primary bg-accent/50 transition-colors duration-200":
+                                dragOverFolderId === folderId,
+                              "ring-1 ring-primary":
+                                currentFolderId === folderId,
+                            }
                           )}
                           style={{
                             width: `${folderWidth}%`,
@@ -1903,16 +1903,22 @@ export default function FolderBrowserDialog({
                           onDragOver={(e) => {
                             e.preventDefault();
                             e.dataTransfer.dropEffect = "move";
-                            setDragOverFolderId(
-                              handleFolderDragOver(e, folderId, draggedItems)
-                            );
+                            // Only update dragOverFolderId if it's not already set to this folder
+                            if (dragOverFolderId !== folderId) {
+                              setDragOverFolderId(
+                                handleFolderDragOver(e, folderId, draggedItems)
+                              );
+                            }
                           }}
-                          onDragLeave={(e) =>
-                            setDragOverFolderId(handleFolderDragLeave(e))
-                          } // draggedItems is not needed here
+                          onDragLeave={(e) => {
+                            const newFolderId = handleFolderDragLeave(e);
+                            // Only update if we're actually leaving the folder
+                            if (newFolderId !== folderId) {
+                              setDragOverFolderId(newFolderId);
+                            }
+                          }}
                           onDrop={(e) => {
                             handleFolderDrop(e, folder.id, draggedItems);
-
                             setDragOverFolderId(null);
                             setDraggedItems(null);
                           }}

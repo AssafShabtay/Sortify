@@ -18,7 +18,7 @@ import React from "react";
 
 export function Sidebar() {
   const [mounted, setMounted] = useState(false);
-  const [activeLink, setActiveLink] = useState("products");
+  const [activeLink, setActiveLink] = useState("dashboard");
   const [sidebarWidth, setSidebarWidth] = useContext(WidthContext);
   const sidebarRef = useRef(null);
   const [isResizing, setIsResizing] = useState(false);
@@ -43,8 +43,8 @@ export function Sidebar() {
           mouseMoveEvent.clientX -
           sidebarRef.current.getBoundingClientRect().left;
         const screenWidth = window.innerWidth;
-        const maxWidth = screenWidth * 0.4;
-        const minWidth = screenWidth * 0.2;
+        const maxWidth = screenWidth * 0.2;
+        const minWidth = screenWidth * 0.12;
         if (newWidth > minWidth && newWidth < maxWidth) {
           setSidebarWidth(newWidth);
         }

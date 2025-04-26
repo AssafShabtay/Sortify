@@ -71,7 +71,6 @@ export function useDragDropHandlers(
 
   const handleFolderDragOver = (e, folderId, draggedFiles) => {
     e.preventDefault(); // Set the drop effect to show a 'move' cursor
-
     e.dataTransfer.dropEffect = "move";
 
     // Check if *any* dragged file originates from a different folder than the target
@@ -80,12 +79,16 @@ export function useDragDropHandlers(
       draggedFiles.length > 0 &&
       draggedFiles[0].folderId !== folderId
     ) {
+      // Check if the folder already has the active class to avoid reapplying it
       const folderElements = document.querySelectorAll(
         `[data-folder-id="${folderId}"]`
       );
 
+      // Only add the class if it's not already there
       folderElements.forEach((el) => {
-        el.classList.add("drag-target-active");
+        if (!el.classList.contains("drag-target-active")) {
+          el.classList.add("drag-target-active");
+        }
       });
 
       return folderId;
@@ -96,14 +99,25 @@ export function useDragDropHandlers(
 
   const handleFolderDragLeave = (e) => {
     // Only clear if we're not entering a child element
-    if (!e.currentTarget.contains(e.relatedTarget)) {
-      // Remove highlight from all folders
-      document.querySelectorAll(".drag-target-active").forEach((el) => {
-        el.classList.remove("drag-target-active");
-      });
+    if (!e.relatedTarget || !e.currentTarget.contains(e.relatedTarget)) {
+      const folderId = e.currentTarget.getAttribute("data-folder-id");
+
+      if (folderId) {
+        // Only remove the highlight from this specific folder
+        const folderElements = document.querySelectorAll(
+          `[data-folder-id="${folderId}"]`
+        );
+
+        folderElements.forEach((el) => {
+          el.classList.remove("drag-target-active");
+        });
+      }
 
       return null;
     }
+
+    // If we're just moving within the folder, don't change the dragOverFolderId
+    return e.currentTarget.getAttribute("data-folder-id");
   };
 
   const handleFolderDrop = (e, targetFolderId, draggedFiles) => {

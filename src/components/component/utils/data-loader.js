@@ -1,12 +1,11 @@
 import { z } from "zod";
-import { appDataDir, join } from "@tauri-apps/api/path";
+import { appDataDir, join, desktopDir } from "@tauri-apps/api/path";
 import {
   exists,
   mkdir,
   readTextFile,
   stat,
   BaseDirectory,
-  metadata,
 } from "@tauri-apps/plugin-fs";
 
 // 1. Define the expected schema for the JSON
@@ -99,8 +98,8 @@ export function transformFolderData(data) {
     const labelStr = String(item.label);
     const fileName = extractFileName(item.path);
     const fileType = getFileTypeFromExtension(fileName);
-    const fileSize = getRandomFileSize(item.path);
-    const lastModified = getRandomLastModified();
+    const fileSize = getRandomFileSize();
+    const lastModified = getRandomLastModified(item.path);
 
     const file = {
       id: `file-${index}`,
@@ -228,9 +227,10 @@ function getRandomFileSize() {
  * @returns Random last modified string
  */
 async function getRandomLastModified(path) {
-  const metadata = await stat(path, {
-    baseDir: BaseDirectory.AppLocalData,
-  });
+  const desktopPath = await desktopDir();
+  const testFilePath = await join(desktopPath, "test.txt"); // Make sure test.txt exists
+  // const metadata = await stat(testFilePath);
+  //const metadata = await stat("C:/Users/shabt/Desktop/test.txt");
   const options = [
     "1 day ago",
     "2 days ago",

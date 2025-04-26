@@ -13,14 +13,16 @@
   "app": {
     "windows": [
       {
-        "fullscreen": false,
-        "height": 720,
-        "resizable": true,
         "title": "Sortify",
+        "height": 720,
         "width": 1280,
+        "minHeight": 550,
+        "minWidth": 860,
+        "fullscreen": false,
+        "resizable": true,
+        "maximized": true,
         "decorations": false,
-        "dragDropEnabled": false,
-        "maximized": true
+        "dragDropEnabled": false
       }
     ],
     "security": {
@@ -57,9 +59,15 @@
             "fs:allow-appdata-write-recursive",
             "fs:allow-appdata-read",
             "fs:allow-appdata-read-recursive",
-            "fs:allow-read-text-file"
+            "fs:allow-read-text-file",
+            "fs:allow-read-file",
+            "fs:allow-read-dir",
+            "fs:allow-stat",
+            "fs:allow-exists",
+            "fs:allow-write-file"
           ]
         },
+
         {
           "identifier": "core:path",
           "windows": ["*"],

@@ -191,3 +191,44 @@ div.file-selected {
 .text-gray-500 {
   color: #94b4c1 !important;
 }
+
+.drag-target-active {
+  @apply ring-2 ring-primary bg-accent/50;
+  transition: all 0.2s ease-in-out;
+}
+
+/* Add a specific animation for when dragging starts/ends */
+@keyframes highlightTarget {
+  0% {
+    background-color: theme("colors.accent.DEFAULT / 0%");
+  }
+  100% {
+    background-color: theme("colors.accent.DEFAULT / 50%");
+  }
+}
+
+/* Make sure cursor reset happens smoothly */
+.cursor-reset * {
+  cursor: default !important;
+}
+
+/* Add this to better control the highlight behavior */
+[data-folder-id].drag-target-active {
+  animation: highlightTarget 0.3s ease forwards;
+}
+
+/* Make sure we don't highlight folders that shouldn't be targets */
+[data-folder-id] .selection-grid [draggable="true"] {
+  cursor: grab;
+}
+
+/* When dragging */
+body.file-dragging
+  [data-folder-id]:not(.drag-target-active):not([data-dragging="true"]) {
+  transition: transform 0.2s ease;
+}
+
+body.file-dragging
+  [data-folder-id]:not(.drag-target-active):hover:not([data-dragging="true"]) {
+  transform: scale(1.01);
+}

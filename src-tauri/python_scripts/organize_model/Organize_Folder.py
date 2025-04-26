@@ -66,7 +66,7 @@ def extract_pdf_text(file_path):
                 continue
         return text_extracted
 
-    except Exception as e:
+    except Exception:
         return None
 
 def extract_doc_text(file_path):
@@ -315,13 +315,10 @@ def extract_file_summary(file_path):
             translated_text = translator.translate(text[:500])
             if translated_text:
                 return translated_text
-                summary = summarize_text(translated_text)
-                return summary
             else:
                 print(f"Translation failed for: {file_path}")
                 return None
         else:
-            counts+=1
             print(f"No text extracted from: {file_path}")
             return None
 
@@ -424,6 +421,10 @@ dataset = pd.DataFrame(
       [(path, data) for path, data in file_summaries.items()],
       columns=['path', 'texts']
 )
+
+dataset['filename'] = dataset['path'].apply(lambda x: os.path.basename(x))
+dataset = dataset.sort_values(by='filename').reset_index(drop=True)
+
 stop_words = set(stopwords.words('english'))
 lemmatizer = WordNetLemmatizer()
 
@@ -453,10 +454,6 @@ if len(X)<6:
 num_components = min(len(X) - 3, 15)
 umap_model = umap.UMAP(n_components=num_components, random_state=42)
 X_reduced = umap_model.fit_transform(X)
-
-umap_model = umap.UMAP(n_components=2, random_state=42)
-X_reduced_plt = umap_model.fit_transform(X)
-
 
 X_reduced = X_reduced.astype(np.float64)
 n_samples = X_reduced.shape[0]
@@ -515,9 +512,6 @@ best_clusterer = hdbscan.HDBSCAN(
 )
 
 labels = best_clusterer.fit_predict(X_reduced)
-
-df = pd.DataFrame(X_reduced_plt, columns=['x', 'y'])
-df["label"] = labels
 
 # Writing json
 cluster_mapping = [
