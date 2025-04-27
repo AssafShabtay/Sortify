@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+
 export default function Dashboard() {
   const { toast } = useToast();
   const [fileCount, setFileCount] = useState(0);
@@ -359,23 +360,23 @@ export default function Dashboard() {
   const renderOptionRow = (label, checked, onChange, icon, tooltip = null) => {
     return (
       <div
-        className={`flex items-center justify-between py-1 hover:bg-[#94B4C1]/20 rounded px-1 transition-all duration-300 
+        className={`flex items-center justify-between py-2 hover:bg-[#94B4C1]/20 rounded px-2 transition-all duration-300 
           ${
             animateOptions
               ? "opacity-100 translate-x-0"
               : "opacity-0 -translate-x-4"
           }`}
       >
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center space-x-2">
           {icon}
           <div className="flex items-center">
-            <Label className="font-medium text-gray-700 text-xs">{label}</Label>
+            <Label className="font-medium text-gray-700 text-sm">{label}</Label>
             {tooltip && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <FiInfo className="text-sm text-gray-500 cursor-pointer ml-1" />
+                  <FiInfo className="text-base text-gray-500 cursor-pointer ml-1.5" />
                 </TooltipTrigger>
-                <TooltipContent className="max-w-xs text-xs">
+                <TooltipContent className="max-w-xs text-sm">
                   {tooltip}
                 </TooltipContent>
               </Tooltip>
@@ -393,7 +394,7 @@ export default function Dashboard() {
             }
             onChange(value);
           }}
-          className="scale-75 transition-transform duration-200 hover:scale-90 focus:ring-2 focus:ring-[#94B4C1]"
+          className="transition-transform duration-200 hover:scale-100 focus:ring-2 focus:ring-[#94B4C1]"
         />
       </div>
     );
@@ -401,18 +402,18 @@ export default function Dashboard() {
 
   return (
     <TooltipProvider>
-      <div className="container mx-auto p-3 h-full max-h-screen overflow-auto">
+      <div className="container mx-auto p-4 pt-8 h-full max-h-screen overflow-auto">
         <div
-          className={`flex flex-col space-y-4 transition-all duration-500 ${
+          className={`flex flex-col space-y-6 transition-all duration-500 ${
             screenSize === "sm" ? "px-1" : ""
-          } pb-4`}
+          } pb-8`}
         >
           <div className="flex justify-between items-center" ref={headerRef}>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-[#213448] transition-all duration-300 hover:text-[#547792]">
+              <h1 className="text-3xl font-bold tracking-tight text-[#213448] transition-all duration-300 hover:text-[#547792]">
                 File Organizer
               </h1>
-              <p className="text-sm text-[#547792] transition-opacity duration-300 hover:opacity-80">
+              <p className="text-base text-[#547792] transition-opacity duration-300 hover:opacity-80">
                 Automatically organize and manage your files
               </p>
             </div>
@@ -420,11 +421,11 @@ export default function Dashboard() {
             <div>
               <Badge
                 variant="outline"
-                className="bg-[#94B4C1]/10 text-[#213448] border-[#94B4C1] text-xs px-2 py-1 flex items-center 
+                className="bg-[#94B4C1]/10 text-[#213448] border-[#94B4C1] text-sm px-3 py-1.5 flex items-center 
                   hover:bg-[#94B4C1]/20 transition-colors duration-300"
               >
                 <FiZap
-                  className={`mr-1 transition-transform duration-300 ${
+                  className={`mr-1.5 transition-transform duration-300 ${
                     isOrganizing ? "text-yellow-500 animate-pulse" : ""
                   }`}
                 />
@@ -445,15 +446,15 @@ export default function Dashboard() {
               ${screenSize === "sm" ? "p-2" : ""}`}
           >
             <CardContent
-              className={`${screenSize === "sm" ? "p-2" : "pt-4 pb-4"}`}
+              className={`${screenSize === "sm" ? "p-3" : "pt-5 pb-5 px-4"}`}
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-medium text-[#213448]">
+                  <p className="text-sm font-medium text-[#213448]">
                     Files Selected
                   </p>
                   <h3
-                    className={`text-xl font-bold text-[#213448] transition-all duration-500 ${
+                    className={`text-2xl font-bold text-[#213448] transition-all duration-500 ml-2 ${
                       fileCount > 0 ? "scale-110" : "scale-100"
                     }`}
                   >
@@ -462,7 +463,7 @@ export default function Dashboard() {
 
                   {/* Quick file stats - appear after folder selection */}
                   {fileCount > 0 && (
-                    <div className="flex space-x-2 mt-1 text-[9px] text-[#547792] animate-fadeIn">
+                    <div className="flex space-x-3 mt-2 text-xs text-[#547792] animate-fadeIn">
                       <span>{quickStats.images} images</span>
                       <span>•</span>
                       <span>{quickStats.documents} docs</span>
@@ -472,7 +473,7 @@ export default function Dashboard() {
                   )}
                 </div>
                 <div
-                  className={`h-10 w-10 bg-[#547792] rounded-full flex items-center justify-center transition-all duration-300
+                  className={`h-12 w-12 bg-[#547792] rounded-full flex items-center justify-center transition-all duration-300
                     hover:bg-[#213448] ${
                       folderHover ? "scale-110" : "scale-100"
                     }`}
@@ -480,7 +481,7 @@ export default function Dashboard() {
                   onMouseLeave={() => setFolderHover(false)}
                   onClick={handleSelectFolder}
                 >
-                  <FiFolder className="h-5 w-5 text-white" />
+                  <FiFolder className="h-6 w-6 text-white" />
                 </div>
               </div>
             </CardContent>
@@ -496,41 +497,41 @@ export default function Dashboard() {
               }`}
           >
             <CardHeader
-              className={`bg-[#213448] text-white py-3 px-4 transition-colors duration-300 hover:bg-[#213448]/90
-              ${screenSize === "sm" ? "py-2 px-3" : ""} sticky top-0 z-10`}
+              className={`bg-[#213448] text-white py-4 px-5 transition-colors duration-300 hover:bg-[#213448]/90
+              ${screenSize === "sm" ? "py-3 px-4" : ""} sticky top-0 z-10`}
             >
-              <CardTitle className="text-lg flex items-center">
+              <CardTitle className="text-xl flex items-center">
                 <FiFolder className="mr-2" />
                 <span className="transition-all duration-300 hover:translate-x-1">
                   File Organization
                 </span>
               </CardTitle>
-              <CardDescription className="text-[#94B4C1] opacity-90 text-xs">
+              <CardDescription className="text-[#94B4C1] opacity-90 text-sm">
                 Organize your files into logical categories
               </CardDescription>
             </CardHeader>
 
             <CardContent
               className={`${
-                screenSize === "sm" ? "p-3" : "p-4"
+                screenSize === "sm" ? "p-3" : "p-5"
               } transition-all duration-300 overflow-y-auto`}
-              style={{ maxHeight: "calc(100vh - 180px)" }}
+              style={{ maxHeight: "calc(100vh - 200px)" }}
             >
               <div
-                className={`space-y-4 ${
-                  screenSize === "sm" ? "space-y-3" : ""
+                className={`space-y-5 ${
+                  screenSize === "sm" ? "space-y-4" : ""
                 }`}
               >
                 {/* Select Folder Section */}
                 <div
-                  className={`bg-[#94B4C1]/10 p-3 rounded-lg border border-[#94B4C1]/30 
+                  className={`bg-[#94B4C1]/10 p-4 rounded-lg border border-[#94B4C1]/30 
                     transition-all duration-300 hover:border-[#547792]/60
-                    ${screenSize === "sm" ? "p-2" : ""}`}
+                    ${screenSize === "sm" ? "p-3" : ""}`}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-semibold flex items-center">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-base font-semibold flex items-center">
                       <FiFolder
-                        className={`mr-1.5 text-[#547792] transition-transform duration-300 
+                        className={`mr-2 text-[#547792] transition-transform duration-300 
                         ${folderHover ? "rotate-3" : ""}`}
                       />
                       Select Source Folder
@@ -539,25 +540,25 @@ export default function Dashboard() {
                       onClick={handleSelectFolder}
                       variant="outline"
                       size="sm"
-                      className="border-[#547792] text-[#213448] hover:bg-[#94B4C1]/20 h-8 transition-all duration-300 hover:scale-105"
+                      className="border-[#547792] text-[#213448] hover:bg-[#94B4C1]/20 h-9 transition-all duration-300 hover:scale-105"
                       onMouseEnter={() => setFolderHover(true)}
                       onMouseLeave={() => setFolderHover(false)}
                     >
-                      <FiFolder className="mr-1.5" /> Browse
+                      <FiFolder className="mr-2" /> Browse
                     </Button>
                   </div>
 
                   {organizeState.selectedFolder ? (
                     <div
-                      className="bg-white p-2 rounded border border-[#94B4C1]/30 flex items-center text-xs
+                      className="bg-white p-3 rounded border border-[#94B4C1]/30 flex items-center text-sm
                       transition-all duration-500 hover:border-[#547792]/60"
                     >
-                      <FiFolder className="text-[#547792] mr-1.5 flex-shrink-0" />
+                      <FiFolder className="text-[#547792] mr-2 flex-shrink-0" />
                       <p className="text-[#213448] truncate">
                         {organizeState.selectedFolder}
                       </p>
                       {fileCount > 0 && (
-                        <Badge className="ml-2 bg-[#94B4C1]/20 text-[#213448] border-0 text-xs transition-all duration-300 hover:bg-[#94B4C1]/40">
+                        <Badge className="ml-3 bg-[#94B4C1]/20 text-[#213448] border-0 text-sm transition-all duration-300 hover:bg-[#94B4C1]/40">
                           {fileCount} files
                         </Badge>
                       )}
@@ -565,7 +566,7 @@ export default function Dashboard() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-5 w-5 p-0 ml-auto flex items-center justify-center text-gray-400 hover:text-red-500"
+                          className="h-6 w-6 p-0 ml-auto flex items-center justify-center text-gray-400 hover:text-red-500"
                           onClick={(e) => {
                             e.stopPropagation();
                             setOrganizeState((prev) => ({
@@ -581,13 +582,13 @@ export default function Dashboard() {
                             });
                           }}
                         >
-                          <FiX size={12} />
+                          <FiX size={14} />
                         </Button>
                       )}
                     </div>
                   ) : (
                     <div
-                      className="bg-[#94B4C1]/10 border border-dashed border-[#94B4C1]/40 rounded-lg p-2 text-center text-xs
+                      className="bg-[#94B4C1]/10 border border-dashed border-[#94B4C1]/40 rounded-lg p-3 text-center text-sm
                       transition-all duration-300 hover:bg-[#94B4C1]/20"
                     >
                       <p className="text-[#213448]">No folder selected</p>
@@ -597,7 +598,7 @@ export default function Dashboard() {
 
                 {/* Output Options */}
                 <div
-                  className={`space-y-1 transition-all duration-500 ease-in-out
+                  className={`space-y-2 transition-all duration-500 ease-in-out
                     ${
                       animateOptions
                         ? "opacity-100 translate-y-0"
@@ -605,37 +606,37 @@ export default function Dashboard() {
                     }`}
                   style={{ transitionDelay: "100ms" }}
                 >
-                  <h3 className="text-sm font-semibold flex items-center">
-                    <MdOutlineCreateNewFolder className="mr-1.5 text-[#547792]" />{" "}
-                    Output Options
+                  <h3 className="text-base font-semibold flex items-center mb-2">
+                    <FiSettings className="mr-2 text-[#547792]" /> Organization
+                    Settings
                   </h3>
 
-                  <div className="ml-1 bg-[#94B4C1]/10 p-3 rounded-lg border border-[#94B4C1]/30 transition-all duration-300 hover:border-[#547792]/40">
+                  <div className="ml-1 bg-[#94B4C1]/10 p-4 rounded-lg border border-[#94B4C1]/30 transition-all duration-300 hover:border-[#547792]/40">
                     {renderOptionRow(
                       "Use same folder for output",
                       organizeState.useTargetAsOutput,
                       (value) =>
                         handleOrganizeStateChange("useTargetAsOutput", value),
-                      <FiFolder className="text-[#547792] h-4 w-4" />
+                      <FiFolder className="text-[#547792] h-5 w-5" />
                     )}
 
                     {!organizeState.useTargetAsOutput && (
-                      <div className="border-l-2 border-[#547792] pl-3 ml-1.5 mt-1 transition-all duration-300 animate-fadeIn">
-                        <div className="flex items-center justify-between py-1">
-                          <Label className="font-medium text-[#213448] text-xs">
+                      <div className="border-l-2 border-[#547792] pl-3 ml-2 mt-2 transition-all duration-300 animate-fadeIn">
+                        <div className="flex items-center justify-between py-1.5">
+                          <Label className="font-medium text-[#213448] text-sm">
                             Output Folder:
                           </Label>
                           <Button
                             onClick={handleSelectOutputFolder}
                             variant="outline"
                             size="sm"
-                            className="border-[#94B4C1] text-[#213448] hover:bg-[#94B4C1]/20 h-7 text-xs transition-transform duration-300 hover:scale-105"
+                            className="border-[#94B4C1] text-[#213448] hover:bg-[#94B4C1]/20 h-8 text-sm transition-transform duration-300 hover:scale-105"
                           >
-                            <FiFolder className="mr-1" /> Select
+                            <FiFolder className="mr-1.5" /> Select
                           </Button>
                         </div>
                         {organizeState.outputFolder && (
-                          <div className="bg-white p-1.5 rounded border border-[#94B4C1]/30 text-xs text-[#213448] animate-fadeIn">
+                          <div className="bg-white p-2 rounded border border-[#94B4C1]/30 text-sm text-[#213448] animate-fadeIn">
                             {organizeState.outputFolder}
                           </div>
                         )}
@@ -654,19 +655,14 @@ export default function Dashboard() {
                     }`}
                   style={{ transitionDelay: "200ms" }}
                 >
-                  <h3 className="text-sm font-semibold flex items-center mb-1">
-                    <FiSettings className="mr-1.5 text-[#547792]" />{" "}
-                    Organization Settings
-                  </h3>
-
                   <div
                     className={`grid ${
                       screenSize === "sm"
-                        ? "grid-cols-1 gap-2"
-                        : "grid-cols-1 md:grid-cols-2 gap-3"
+                        ? "grid-cols-1 gap-3"
+                        : "grid-cols-1 md:grid-cols-2 gap-4"
                     }`}
                   >
-                    <div className="bg-[#94B4C1]/10 p-3 rounded-lg border border-[#94B4C1]/30 transition-all duration-300 hover:border-[#547792]/40">
+                    <div className="bg-[#94B4C1]/10 p-4 rounded-lg border border-[#94B4C1]/30 transition-all duration-300 hover:border-[#547792]/40">
                       {renderOptionRow(
                         "Treat Top Level Folders As One",
                         organizeState.TreatToplevelFoldersAsOne,
@@ -675,7 +671,7 @@ export default function Dashboard() {
                             "TreatToplevelFoldersAsOne",
                             value
                           ),
-                        <BiCategoryAlt className="text-[#547792] h-4 w-4" />,
+                        <BiCategoryAlt className="text-[#547792] h-5 w-5" />,
                         "Group all top level folders"
                       )}
 
@@ -684,7 +680,7 @@ export default function Dashboard() {
                         organizeState.removeDuplicates,
                         (value) =>
                           handleOrganizeStateChange("removeDuplicates", value),
-                        <HiOutlineDuplicate className="text-[#547792] h-4 w-4" />
+                        <HiOutlineDuplicate className="text-[#547792] h-5 w-5" />
                       )}
 
                       {renderOptionRow(
@@ -695,17 +691,17 @@ export default function Dashboard() {
                             "isOrganizeEnabledBackUp",
                             value
                           ),
-                        <FiAlertTriangle className="text-[#547792] h-4 w-4" />
+                        <FiAlertTriangle className="text-[#547792] h-5 w-5" />
                       )}
                     </div>
 
-                    <div className="bg-[#94B4C1]/10 p-3 rounded-lg border border-[#94B4C1]/30 transition-all duration-300 hover:border-[#547792]/40">
+                    <div className="bg-[#94B4C1]/10 p-4 rounded-lg border border-[#94B4C1]/30 transition-all duration-300 hover:border-[#547792]/40">
                       {renderOptionRow(
                         "Auto-rename files",
                         organizeState.autoRenameFiles,
                         (value) =>
                           handleOrganizeStateChange("autoRenameFiles", value),
-                        <FiSettings className="text-green-600 h-4 w-4" />
+                        <FiSettings className="text-green-600 h-5 w-5" />
                       )}
 
                       {renderOptionRow(
@@ -716,7 +712,7 @@ export default function Dashboard() {
                             "autoArchiveOldFiles",
                             value
                           ),
-                        <FiArchive className="text-[#547792] h-4 w-4" />
+                        <FiArchive className="text-[#547792] h-5 w-5" />
                       )}
 
                       {renderOptionRow(
@@ -727,7 +723,7 @@ export default function Dashboard() {
                             "manualReviewNotifications",
                             value
                           ),
-                        <FiEye className="text-[#547792] h-4 w-4" />
+                        <FiEye className="text-[#547792] h-5 w-5" />
                       )}
                     </div>
                   </div>
@@ -828,7 +824,6 @@ export default function Dashboard() {
             </CardFooter>
           </Card>
         </div>
-
         <FolderBrowserDialog
           open={isDialogBrowserOpen}
           onOpenChange={setIsDialogBrowserOpen}
@@ -839,39 +834,57 @@ export default function Dashboard() {
           }
           toast={toast}
         />
-
         {/* Enhanced Loading Overlay */}
         {isOrganizing && (
-          <div className="fixed inset-0 bg-[#213448]/80 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-500 animate-fadeIn">
+          <div className="fixed inset-0 bg-[#213448]/90 backdrop-blur-md flex items-center justify-center z-50 transition-all duration-500 animate-fadeIn">
+            {/* Changed pb-4 to pb-6 to increase bottom padding */}
             <div
-              className="bg-white p-5 rounded-lg shadow-md flex flex-col items-center max-w-xs w-full mx-4 border border-[#94B4C1]/40 animate-scaleIn"
+              className="bg-white px-6 pt-2 pb-6 rounded-xl shadow-lg flex flex-col items-center max-w-md w-full mx-4 border border-[#94B4C1]/40 animate-scaleIn" // <-- pb-4 changed to pb-6
               style={{ maxHeight: "90vh", overflowY: "auto" }}
             >
-              <div className="relative mb-4">
-                <div className="w-12 h-12 border-3 border-[#94B4C1]/30 rounded-full"></div>
-                <div className="absolute top-0 left-0 w-12 h-12 border-3 border-[#547792] rounded-full animate-spin border-t-transparent"></div>
+              {/* Spinner Container */}
+              <div className="flex justify-center items-center relative">
+                {/* Outer circle */}
+                <div className="w-40 h-40 border-6 border-primary/30 rounded-full"></div>
+                {/* Inner static circle */}
+                <div className="absolute top-8 left-8 w-24 h-24 border-4 border-[#94B4C1]/40 rounded-full"></div>
+                {/* Inner animated spinner */}
+                <div
+                  className="absolute top-8 left-8 w-24 h-24 border-4 border-[#94B4C1] rounded-full animate-spin border-t-transparent"
+                  style={{ animationDuration: "1.2s" }}
+                ></div>
               </div>
 
-              <h3 className="text-base font-bold mb-2 text-[#213448]">
+              {/* Title */}
+              <h3 className="text-xl font-bold mb-2 text-[#213448]">
                 Organizing Files
               </h3>
-
+              {/* Loading Message */}
               <div className="h-5 mb-3 text-center">
-                <p className="text-[#547792] text-xs animate-pulse">
+                <p className="text-[#547792] text-sm animate-pulse">
                   {loadingMessage}
                 </p>
               </div>
 
-              <div className="w-full bg-[#94B4C1]/20 rounded-full h-1.5 mb-3 overflow-hidden">
+              {/* Progress Bar Container */}
+              <div className="w-full bg-[#94B4C1]/20 rounded-full h-2.5 mb-3 overflow-hidden">
                 <div
-                  className="bg-[#547792] h-full transition-all duration-300 ease-out"
-                  style={{ width: `${loadingProgress}%` }}
+                  className="bg-[#547792] h-full transition-all duration-300 ease-out rounded-full"
+                  style={{
+                    width: `${loadingProgress}%`,
+                    boxShadow: "0 0 10px rgba(84, 119, 146, 0.5)",
+                  }}
                 ></div>
               </div>
 
-              <div className="text-xs text-[#547792] text-center">
-                <p>Processing {fileCount} files...</p>
+              {/* File Count Text */}
+              <div className="text-sm text-[#547792] text-center font-medium">
+                <p>Processing {fileCount} files</p>
+                <p className="text-xs mt-1 opacity-75">
+                  This may take a moment...
+                </p>
               </div>
+              {/* Increased space below this text due to pb-6 on the parent */}
             </div>
           </div>
         )}
