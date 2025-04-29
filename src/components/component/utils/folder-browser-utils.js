@@ -1,3 +1,5 @@
+"use client";
+
 // Constants
 export const MIN_FOLDER_WIDTH_PERCENT = 10; // Minimum width for a folder panel in percentage
 export const MIN_FOLDER_WIDTH_PIXELS = 100; // Minimum width for a folder panel in pixels

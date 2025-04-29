@@ -218,37 +218,19 @@ export default function FolderBrowserDialog({
 
   useEffect(() => {
     if (open) {
-      const loadData = async () => {
-        try {
-          setIsLoading(true);
-          setLoadError(null);
-          const data = await fetchFolderData();
-
-          if (!data || !Array.isArray(data)) {
-            throw new Error("Invalid data format received");
-          }
-
+      setIsLoading(true);
+      fetchFolderData()
+        .then((data) => {
           const { folders, folderFiles } = transformFolderData(data);
-
           setFolderData(folders);
           setFolderFiles(folderFiles);
-        } catch (error) {
-          console.error("Error loading folder data:", error);
+        })
+        .catch((error) => {
           setLoadError(error.message || "Failed to load folder data");
-
-          // Show a more detailed error message
-          toast({
-            title: "Error loading data",
-            description: `Could not load Organization_Structure.json: ${error.message}`,
-            variant: "destructive",
-            duration: 5000,
-          });
-        } finally {
+        })
+        .finally(() => {
           setIsLoading(false);
-        }
-      };
-
-      loadData();
+        });
     }
   }, [open]);
 

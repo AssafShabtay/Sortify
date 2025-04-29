@@ -1,3 +1,5 @@
+"use client";
+
 import { z } from "zod";
 import { appDataDir, join, desktopDir } from "@tauri-apps/api/path";
 import {
