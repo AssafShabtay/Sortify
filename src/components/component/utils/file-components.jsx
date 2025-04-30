@@ -1,16 +1,8 @@
 "use client";
 
-import {
-  File,
-  FileText,
-  FileImage,
-  FileAudio,
-  FileVideo,
-  Clock,
-} from "lucide-react";
+import { File, FileText, FileImage, FileAudio, FileVideo } from "lucide-react";
 import { cn } from "@/lib/utils";
 import React from "react";
-import { open } from "@tauri-apps/plugin-fs";
 //import { PdfIcon, DocxIcon } from "@/components/ui/icons/file_icons";
 // File card - fix the styling to look better in the folder
 export function FileCard({
@@ -314,13 +306,7 @@ export function FileCard({
         <div className="overflow-hidden flex-1">
           <h3 className="font-medium text-sm truncate">{file.name}</h3>
           <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>{file.size}</span>
-              <span className="flex items-center">
-                <Clock className="h-3 w-3 mr-1" />
-                {file.lastModified}
-              </span>
-            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground"></div>
             {file.path && (
               <div
                 className="text-xs text-muted-foreground truncate max-w-full"

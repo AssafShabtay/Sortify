@@ -16,7 +16,6 @@ import {
 } from "react-icons/fi";
 import { BiCategoryAlt } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
-import { MdOutlineCreateNewFolder } from "react-icons/md";
 import { invoke } from "@tauri-apps/api/core";
 import {
   Tooltip,
@@ -46,7 +45,6 @@ export default function Dashboard() {
   const [isOrganizing, setIsOrganizing] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const [loadingProgress, setLoadingProgress] = useState(0);
-  const [activeTab, setActiveTab] = useState("organize");
   const [animateCard, setAnimateCard] = useState(false);
   const [animateOptions, setAnimateOptions] = useState(false);
   const [screenSize, setScreenSize] = useState("md");
@@ -734,7 +732,7 @@ export default function Dashboard() {
             <Separator className="bg-[#94B4C1]/30" />
 
             <CardFooter
-              className={`px-4 py-3 bg-[#94B4C1]/10 flex justify-between transition-all duration-300
+              className={`px-4 py-3 bg-[#94B4C1]/10 flex justify-center items-center transition-all duration-300
               ${screenSize === "sm" ? "px-3 py-2" : ""} sticky bottom-0 z-10`}
             >
               <div className="flex items-center">
@@ -745,20 +743,11 @@ export default function Dashboard() {
                 )}
               </div>
 
-              <div className="flex space-x-2">
+              <div className="flex justify-center w-1/3">
                 <Button
-                  variant="outline"
-                  onClick={() => setIsDialogBrowserOpen(true)}
-                  className="border-[#547792] text-[#213448] hover:bg-[#94B4C1]/20 h-8 text-xs transition-all duration-300 hover:scale-105"
-                  size="sm"
-                >
-                  <FiFolder className="mr-1" /> Browse
-                </Button>
-
-                <Button
-                  className={`bg-[#213448] hover:bg-[#213448]/90 text-white h-8 text-xs transition-all duration-300 
-                    ${isOrganizing ? "" : "hover:scale-105"} 
-                    ${fileCount > 0 ? "animate-pulse-subtle" : ""}`}
+                  className={`bg-[#213448] hover:bg-[#213448]/90 text-white h-8 text-xs transition-all duration-300 w-full
+                  ${isOrganizing ? "" : "hover:scale-105"}
+                  ${fileCount > 0 ? "animate-pulse-subtle" : ""}`}
                   size="sm"
                   onClick={() => {
                     if (!organizeState.selectedFolder) {
@@ -823,6 +812,14 @@ export default function Dashboard() {
               </div>
             </CardFooter>
           </Card>
+          <Button
+            variant="outline"
+            onClick={() => setIsDialogBrowserOpen(true)}
+            className="border-[#547792] text-[#213448] hover:bg-[#94B4C1]/20 h-8 text-xs transition-all duration-300 hover:scale-105"
+            size="sm"
+          >
+            <FiFolder className="mr-1" /> Browse
+          </Button>
         </div>
         <FolderBrowserDialog
           open={isDialogBrowserOpen}
