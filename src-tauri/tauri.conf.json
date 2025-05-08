@@ -28,6 +28,7 @@
     "security": {
       "csp": null,
       "capabilities": [
+        "main-capability",
         {
           "identifier": "draggable-window",
           "windows": ["*"],
@@ -48,6 +49,7 @@
           "windows": ["*"],
           "permissions": ["dialog:allow-open", "dialog:default"]
         },
+
         {
           "identifier": "fs",
           "windows": ["*"],

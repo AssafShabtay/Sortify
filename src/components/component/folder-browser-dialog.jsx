@@ -1,7 +1,14 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Folder, Plus, GripVertical, Save, RotateCcw } from "lucide-react";
+import {
+  Folder,
+  Plus,
+  GripVertical,
+  Save,
+  RotateCcw,
+  Edit,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { open } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -34,9 +42,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge"; // Add this import
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@/components/ui/tooltip"; // Add this import
 
 export default function FolderBrowserDialog({
-  open,
+  isOpen,
   onOpenChange,
   baseOutput,
   toast,
@@ -75,6 +90,10 @@ export default function FolderBrowserDialog({
   // Add these new state variables after the other state declarations
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
 
+  // Add state for tracking the current base output path
+  const [currentBaseOutput, setCurrentBaseOutput] = useState(baseOutput);
+  const [isChangingBaseOutput, setIsChangingBaseOutput] = useState(false);
+
   const {
     handleFileDragStart,
     handleFileDragEnd,
@@ -89,6 +108,11 @@ export default function FolderBrowserDialog({
     setFolderData
   );
 
+  // Update currentBaseOutput when baseOutput prop changes
+  useEffect(() => {
+    setCurrentBaseOutput(baseOutput);
+  }, [baseOutput]);
+
   // Reset cursor when component unmounts or dialog closes
   useEffect(() => {
     return () => {
@@ -101,7 +125,7 @@ export default function FolderBrowserDialog({
         document.body.classList.remove("cursor-reset");
       }, 100);
     };
-  }, [open]);
+  }, [isOpen]);
 
   // Reset folder widths when selection changes
   useEffect(() => {
@@ -217,7 +241,7 @@ export default function FolderBrowserDialog({
   }, [foldersPanelWidth]);
 
   useEffect(() => {
-    if (open) {
+    if (isOpen) {
       setIsLoading(true);
       fetchFolderData()
         .then((data) => {
@@ -232,7 +256,39 @@ export default function FolderBrowserDialog({
           setIsLoading(false);
         });
     }
-  }, [open]);
+  }, [isOpen]);
+
+  // Function to handle changing the base output folder
+  const handleChangeBaseOutput = async () => {
+    try {
+      setIsChangingBaseOutput(true);
+      const selectedPath = await open({
+        directory: true,
+        title: "Select Output Folder",
+        multiple: false,
+      });
+
+      if (selectedPath) {
+        setCurrentBaseOutput(selectedPath);
+        setHasChanges(true);
+        toast({
+          title: "Output folder updated",
+          description: "Files will be saved to the new location.",
+          duration: 3000,
+        });
+      }
+    } catch (error) {
+      console.error("Error selecting folder:", error);
+      toast({
+        title: "Error",
+        description: "Failed to select output folder",
+        variant: "destructive",
+        duration: 3000,
+      });
+    } finally {
+      setIsChangingBaseOutput(false);
+    }
+  };
 
   // Add a global drag end event listener to ensure cursor reset
   useEffect(() => {
@@ -300,13 +356,13 @@ export default function FolderBrowserDialog({
 
   // Add keyboard shortcut listener
   useEffect(() => {
-    if (open) {
+    if (isOpen) {
       window.addEventListener("keydown", handleKeyDown);
       return () => {
         window.removeEventListener("keydown", handleKeyDown);
       };
     }
-  }, [open, currentFolderId, folderFiles]);
+  }, [isOpen, currentFolderId, folderFiles]);
 
   const handleFolderClick = (folder) => {
     setSelectedFolderIds((prev) => {
@@ -409,6 +465,24 @@ export default function FolderBrowserDialog({
     document.addEventListener("mousemove", handleResize);
     document.addEventListener("mouseup", handleResizeEnd);
   };
+
+  // Handle saving changes with the updated base output path
+  const handleSaveChanges = (copyOrMove) => {
+    saveChanges(
+      folderFiles,
+      setHasChanges,
+      setIsSaving,
+      currentBaseOutput, // Use the updated base output
+      toast,
+      copyOrMove
+    );
+
+    // Close the dialog after saving
+    setTimeout(() => {
+      onOpenChange(false);
+    }, 500);
+  };
+
   // Handle resizing between folders panel and files panel
   const handleMainSeparatorResizeStart = (e) => {
     e.preventDefault();
@@ -1392,47 +1466,6 @@ export default function FolderBrowserDialog({
     });
   };
 
-  const handleSaveChanges = (copyOrMove) => {
-    saveChanges(
-      folderFiles,
-      setHasChanges,
-      setIsSaving,
-      baseOutput,
-      toast,
-      copyOrMove
-    );
-
-    // Close the dialog after saving
-    setTimeout(() => {
-      onOpenChange(false);
-    }, 500);
-  };
-  // Normalize folder widths when resizing is complete
-  useEffect(() => {
-    if (resizingIndex === null && selectedFolderIds.length > 0) {
-      setFolderWidths((prev) => {
-        const totalWidth = selectedFolderIds.reduce(
-          (sum, id) => sum + (prev[id] || 0),
-          0
-        );
-
-        // If total width is significantly different from 100%, normalize it
-        if (Math.abs(totalWidth - 100) > 0.5) {
-          const newWidths = { ...prev };
-          const scaleFactor = 100 / totalWidth;
-
-          selectedFolderIds.forEach((id) => {
-            newWidths[id] =
-              (prev[id] || 100 / selectedFolderIds.length) * scaleFactor;
-          });
-
-          return newWidths;
-        }
-        return prev;
-      });
-    }
-  }, [resizingIndex, selectedFolderIds]);
-
   // Add these functions before the return statement
   const handleStartRename = (folder) => {
     setRenamingFolderId(folder.id);
@@ -1511,8 +1544,6 @@ export default function FolderBrowserDialog({
     });
   };
 
-  // Add this useEffect after the other useEffect hooks to load data when the dialog opens
-
   // Add the handleRevertChanges function before the return statement
   // Add this function after the handleSubmitNewFolder function:
 
@@ -1559,9 +1590,22 @@ export default function FolderBrowserDialog({
     }
   };
 
+  // Function to truncate path for display
+  const getTruncatedPath = (path) => {
+    if (!path) return "No output folder set";
+    if (path.length <= 50) return path;
+
+    const parts = path.split(/[/\\]/);
+    if (parts.length <= 3) return path;
+
+    return `${parts[0]}/.../${parts[parts.length - 2]}/${
+      parts[parts.length - 1]
+    }`;
+  };
+
   return (
     <Dialog
-      open={open}
+      open={isOpen}
       onOpenChange={(newOpen) => {
         // Reset cursor when dialog closes
         if (!newOpen) {
@@ -1617,6 +1661,53 @@ export default function FolderBrowserDialog({
             view their contents side by side. Drag the separators to adjust
             panel sizes.
           </DialogDescription>
+
+          {/* Add the base output path display and change button */}
+          <div className="mt-3 flex flex-wrap items-center justify-between p-2 bg-muted/30 rounded-md border">
+            <div className="flex items-center">
+              <Folder className="h-4 w-4 text-muted-foreground mr-2" />
+              <span className="text-sm text-muted-foreground mr-1">
+                Output folder:
+              </span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-sm font-medium max-w-[300px] truncate hover:underline cursor-help">
+                      {getTruncatedPath(currentBaseOutput)}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-md break-all">
+                      {currentBaseOutput || "No output folder set"}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              {baseOutput !== currentBaseOutput && (
+                <Badge
+                  variant="outline"
+                  className="ml-2 bg-yellow-100 text-yellow-800 text-xs border-yellow-300"
+                >
+                  Modified
+                </Badge>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleChangeBaseOutput}
+              disabled={isSaving || isLoading || isChangingBaseOutput}
+              className="text-xs h-7 gap-1 mt-1 sm:mt-0"
+            >
+              {isChangingBaseOutput ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Edit className="h-3 w-3" />
+              )}
+              Change Output
+            </Button>
+          </div>
         </DialogHeader>
         <div
           className="mt-2 sm:mt-4 flex flex-col md:flex-row gap-2 sm:gap-4 flex-1 overflow-hidden"

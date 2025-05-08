@@ -24,6 +24,10 @@ import sys
 import codecs
 import json
 import random
+from PIL import Image
+from transformers import BlipProcessor, BlipForConditionalGeneration
+from io import BytesIO
+import cairosvg
 
 # Set all random seeds for deterministic behavior
 np.random.seed(42)
@@ -36,10 +40,10 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
 
-folder_path = sys.argv[1]  
+folder_path = sys.argv[1]
 output_json_path = sys.argv[2]
 toplevel_folders_as_one = sys.argv[3]
-print(toplevel_folders_as_one)
+
 treat_toplevel_folders_as_one = True if toplevel_folders_as_one == "true" else False
 
 # make the prints be in utf-8
@@ -135,142 +139,59 @@ def extract_epub_text(file_path):
 
 #-------------------Images--------------------------------------------------
 
+_model = None
+_processor = None
+_device = None
 
+def load_model(model_name="Salesforce/blip-image-captioning-base", device=None):
+    global _model, _processor, _device
+    if _model is not None:
+        return
+    
+    _device = device if device else ("cuda" if torch.cuda.is_available() else "cpu")
+    torch.set_grad_enabled(False)
+    if _device == "cuda":
+        torch.backends.cudnn.benchmark = True
+    
+    _processor = BlipProcessor.from_pretrained(model_name)
+    _model = BlipForConditionalGeneration.from_pretrained(model_name).to(_device)
+    _model.eval()
 
-## Global configs for maximum speed
-#os.environ["TOKENIZERS_PARALLELISM"] = "false"  # Avoid deadlocks
-#if torch.cuda.is_available():
-#    torch.backends.cudnn.benchmark = True
-#    torch.backends.cudnn.deterministic = False
-#    torch.backends.cuda.matmul.allow_tf32 = True  # Allow TF32 on Ampere GPUs
-#    torch.backends.cudnn.allow_tf32 = True
-#
-## Use lightweight model
-#MODEL_NAME = "nlpconnect/vit-gpt2-image-captioning"
-#
-## Initialize global variables
-#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#tokenizer = None
-#feature_extractor = None
-#model = None
-#is_initialized = False
-#
-#def init_model():
-#    """Initialize and optimize the model only once"""
-#    global tokenizer, feature_extractor, model, is_initialized
-#
-#    if is_initialized:
-#        return
-#
-#    print("Loading model...")
-#    # Load fastest versions of tokenizer and feature_extractor
-#    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-#    feature_extractor = ViTFeatureExtractor.from_pretrained(MODEL_NAME)
-#
-#    # Load and optimize model
-#    model = VisionEncoderDecoderModel.from_pretrained(MODEL_NAME)
-#    model.to(device)
-#    model.eval()
-#
-#    # Apply aggressive speedups
-#    if device.type == "cuda":
-#        model = model.half()  # Use FP16 precision
-#
-#    # Quantize the model (this reduces model size and improves speed)
-#    model = torch.quantization.quantize_dynamic(
-#        model, {torch.nn.Linear}, dtype=torch.qint8
-#    )
-#
-#    # Disable all gradients
-#    for param in model.parameters():
-#        param.requires_grad = False
-#
-#    # JIT/compile optimizations for newer PyTorch
-#    if hasattr(torch, 'compile'):
-#        try:
-#            model = torch.compile(model, mode="reduce-overhead", fullgraph=True)
-#        except Exception as e:
-#            print(f"Torch compile error: {e}")
-#
-#    is_initialized = True
-#    print("Model ready")
-#
-#def preprocess_image(image_path, target_size=(224, 224)):
-#    """Preprocess image with maximum efficiency"""
-#    # Handle both filepath and PIL image
-#    if isinstance(image_path, (str, pathlib.PosixPath)):
-#        image_path = str(image_path)  # Convert to string if it's a PosixPath
-#        image = Image.open(image_path).convert('RGB')
-#    else:
-#        image = image_path
-#
-#    if image.size != target_size:
-#        image = image.resize(target_size, Image.BILINEAR)
-#
-#    # Fast feature extraction
-#    inputs = feature_extractor(images=image, return_tensors="pt")
-#
-#    # Create attention mask (1 for real tokens, 0 for padding)
-#    attention_mask = inputs['pixel_values'].new_ones(inputs['pixel_values'].shape[:2])
-#
-#    # Move to device and optimize precision
-#    if device.type == "cuda":
-#        inputs = {k: v.to(device).half() for k, v in inputs.items()}
-#        attention_mask = attention_mask.to(device).half()  # Ensure it matches the device
-#    else:
-#        inputs = {k: v.to(device) for k, v in inputs.items()}
-#        attention_mask = attention_mask.to(device)
-#
-#    # Add the attention mask to the inputs
-#    inputs['attention_mask'] = attention_mask
-#
-#    return inputs
-#
-#def generate_caption(inputs):
-#    """Generate caption with minimal settings for speed"""
-#    # Ensure no_grad context for inference
-#    with torch.no_grad(), torch.cuda.amp.autocast() if device.type == "cuda" else nullcontext():
-#        output_ids = model.generate(
-#            inputs["pixel_values"],         # Minimal length for speed
-#            num_beams=1,             # Greedy search (fastest)
-#            do_sample=False,
-#            early_stopping=True,
-#            use_cache=True,
-#            return_dict_in_generate=False,
-#            output_scores=False
-#        )
-#
-#    # Fast decoding
-#    caption = tokenizer.decode(output_ids[0], skip_special_tokens=True)
-#    return caption
-#
-#def caption_image(image_path):
-#    """Main function to caption an image with timing"""
-#    # Make sure model is initialized
-#    if not is_initialized:
-#        init_model()
-#
-#    # Time the actual processing
-#    start_time = time.time()
-#
-#    # Process pipeline
-#    start_time2 = time.time()
-#
-#    inputs = preprocess_image(image_path)
-#    print(f"Preprocessing Time: {time.time() - start_time2:.4f} seconds")
-#    start_time1 = time.time()
-#    caption = generate_caption(inputs)
-#    print(f"Generation Time: {time.time() - start_time1:.4f} seconds")
-#
-#    # Calculate timing
-#    inference_time = time.time() - start_time
-#    return caption, inference_time
-#
-## Nullcontext for PyTorch compatibility
-#class nullcontext:
-#    def __enter__(self): return None
-#    def __exit__(self, *args): pass
-
+def caption_image(image_input, model_name="Salesforce/blip-image-captioning-base", device=None):
+    global _model, _processor, _device
+    
+    if _model is None:
+        load_model(model_name, device)
+    
+    try:
+        if isinstance(image_input, Image.Image):
+            pil_image = image_input
+        elif isinstance(image_input, BytesIO):
+            image_input.seek(0)
+            pil_image = Image.open(image_input)
+        else:
+            pil_image = Image.open(image_input)
+        start_time = time.time()
+        pil_image = pil_image.convert('RGB').resize((224, 224), Image.BILINEAR)
+        inputs = _processor(images=pil_image, return_tensors="pt").to(_device)
+        
+        with torch.inference_mode():
+            outputs = _model.generate(
+                **inputs,
+                max_length=30,
+                num_beams=2,
+                min_length=5,
+                do_sample=True,
+                top_p=0.9,
+                length_penalty=1.0
+            )
+            
+            caption = _processor.decode(outputs[0], skip_special_tokens=True)
+        print(f"imamge procesing {start_time - time.time():.2f}")
+        return caption
+        
+    except Exception as e:
+        return None
 
 nltk.download('stopwords')
 nltk.download('wordnet')
@@ -291,22 +212,22 @@ def extract_file_summary(file_path):
             text = extract_docx_text(Path(file_path))
         elif extension == ".txt":
             text = extract_txt_text(Path(file_path))
-        #elif extension == ".rtf":
-        #    text = extractions.extract_rtf_text(Path(file_path))
         elif extension == ".doc":
             text = extract_doc_text(Path(file_path))
         elif extension == ".tex":
             text = extract_tex_text(Path(file_path))
         elif extension == ".epub":
             text = extract_epub_text(Path(file_path))
-#        elif extension in (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp", ".ico", ".heif", ".heic", ".avif", ".eps", ".dds", ".dis", ".im", ".mpo", ".msp", ".pxc", ".pfm", ".ppm", ".tga", ".spider", ".sgi", ".xbm", "psd"):
-#            text = extractions.caption_image(Path(file_path))
-#            print(f"Image caption: {text}")
-#            return text
-        #elif extension == ".svg":
-        #    out = BytesIO()
-        #    cairosvg.svg2png(url=Path(file_path), write_to=out)
-        #    ext = extractions.caption_image(out)
+        elif extension in (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp", ".ico", ".heif", ".heic", ".avif", ".eps", ".dds", ".dis", ".im", ".mpo", ".msp", ".pxc", ".pfm", ".ppm", ".tga", ".spider", ".sgi", ".xbm", "psd"):
+            text = caption_image(Path(file_path))
+            print(f"Image caption: {text}")
+            return text
+        elif extension == ".svg":
+            png_data = BytesIO()
+            cairosvg.svg2png(url=str(file_path), write_to=png_data)
+            png_data.seek(0)
+            pil_image = Image.open(png_data)
+            text = caption_image(pil_image)
         else:
             print(f"Unsupported extension: {extension}")
 
@@ -326,7 +247,7 @@ def extract_file_summary(file_path):
         print(f"Error processing {file_path}: {e}")
         return None
     finally:
-        print(f"Processing time for {file_path}: {time.time() - start_time} seconds")
+        print(f"Processing time for {file_path}: {time.time() - start_time:.2f} seconds")
 
 
 def process_directory(folder_path,max_workers=4):

@@ -1,11 +1,12 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
+  "identifier": "main-capability",
   "description": "enables the default permissions",
-  "windows": ["main"],
+  "windows": ["*"],
   "permissions": [
     "core:default",
     "shell:allow-open",
+    "opener:allow-open-path",
     {
       "identifier": "shell:allow-execute",
       "allow": [
@@ -20,15 +21,27 @@
         }
       ]
     },
-
     {
-      "identifier": "fs:scope",
+      "identifier": "opener:allow-open-path",
       "allow": [
-        { "path": "$DESKTOP" },
-        { "path": "$DESKTOP/**" },
-        { "path": "$DOCUMENT/**" },
-        { "path": "$DOWNLOAD/**" },
-        { "path": "$HOME/*" }
+        {
+          "path": "$DESKTOP"
+        },
+        {
+          "path": "$DESKTOP/**"
+        },
+        {
+          "path": "$DOCUMENT/**"
+        },
+        {
+          "path": "$DOWNLOAD/**"
+        },
+        {
+          "path": "$HOME/**"
+        },
+        {
+          "path": "C:/Users/shabt/Desktop/test.txt"
+        }
       ]
     }
   ]

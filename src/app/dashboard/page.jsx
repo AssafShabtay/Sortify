@@ -17,6 +17,7 @@ import {
 import { BiCategoryAlt } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { invoke } from "@tauri-apps/api/core";
+
 import {
   Tooltip,
   TooltipTrigger,
@@ -43,6 +44,7 @@ export default function Dashboard() {
   const [fileCount, setFileCount] = useState(0);
   const [isDialogBrowserOpen, setIsDialogBrowserOpen] = useState(false);
   const [isOrganizing, setIsOrganizing] = useState(false);
+  const [isCounting, setIsCounting] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [animateCard, setAnimateCard] = useState(false);
@@ -223,9 +225,14 @@ export default function Dashboard() {
   }, [fileCount]);
 
   const handleSelectFolder = async () => {
-    const folderPath = await open({ directory: true });
+    const folderPath = await open({
+      directory: true,
+      title: "Select Target Folder",
+      multiple: false,
+    });
     if (folderPath) {
-      setAnimateCard(false); // Reset animation
+      // Instead of hiding the cards, show a counting indicator
+      setIsCounting(true); // <-- NEW STATE USED INSTEAD
 
       setOrganizeState((prevState) => ({
         ...prevState,
@@ -246,9 +253,6 @@ export default function Dashboard() {
         console.log("count: ", count);
         setFileCount(count);
 
-        // Animate card again after data is loaded
-        setAnimateCard(true);
-
         // Show toast on completion
         toast({
           title: "Folder analyzed",
@@ -264,6 +268,9 @@ export default function Dashboard() {
           description: "Using estimated file count",
           variant: "destructive",
         });
+      } finally {
+        // Always stop the counting indicator when done
+        setIsCounting(false); // <-- ENSURES STATE IS RESET
       }
     }
   };
@@ -451,13 +458,42 @@ export default function Dashboard() {
                   <p className="text-sm font-medium text-[#213448]">
                     Files Selected
                   </p>
-                  <h3
-                    className={`text-2xl font-bold text-[#213448] transition-all duration-500 ml-2 ${
-                      fileCount > 0 ? "scale-110" : "scale-100"
-                    }`}
-                  >
-                    {fileCount || 0}
-                  </h3>
+                  <div className="flex items-center">
+                    <h3
+                      className={`text-2xl font-bold text-[#213448] transition-all duration-500 ml-2 ${
+                        fileCount > 0 ? "scale-110" : "scale-100"
+                      }`}
+                    >
+                      {fileCount || 0}
+                    </h3>
+                    {isCounting && (
+                      <div className="ml-3 flex items-center">
+                        <svg
+                          className="animate-spin h-4 w-4 text-[#547792]"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        <span className="text-sm ml-2 text-[#547792]">
+                          Counting...
+                        </span>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Quick file stats - appear after folder selection */}
                   {fileCount > 0 && (
@@ -474,10 +510,10 @@ export default function Dashboard() {
                   className={`h-12 w-12 bg-[#547792] rounded-full flex items-center justify-center transition-all duration-300
                     hover:bg-[#213448] ${
                       folderHover ? "scale-110" : "scale-100"
-                    }`}
+                    } ${isCounting ? "opacity-70 cursor-wait" : ""}`}
                   onMouseEnter={() => setFolderHover(true)}
                   onMouseLeave={() => setFolderHover(false)}
-                  onClick={handleSelectFolder}
+                  onClick={isCounting ? null : handleSelectFolder}
                 >
                   <FiFolder className="h-6 w-6 text-white" />
                 </div>
@@ -538,11 +574,42 @@ export default function Dashboard() {
                       onClick={handleSelectFolder}
                       variant="outline"
                       size="sm"
-                      className="border-[#547792] text-[#213448] hover:bg-[#94B4C1]/20 h-9 transition-all duration-300 hover:scale-105"
+                      className={`border-[#547792] text-[#213448] hover:bg-[#94B4C1]/20 h-9 transition-all duration-300 hover:scale-105 ${
+                        isCounting ? "opacity-70 cursor-wait" : ""
+                      }`}
                       onMouseEnter={() => setFolderHover(true)}
                       onMouseLeave={() => setFolderHover(false)}
+                      disabled={isCounting}
                     >
-                      <FiFolder className="mr-2" /> Browse
+                      {isCounting ? (
+                        <>
+                          <svg
+                            className="animate-spin -ml-1 mr-2 h-4 w-4 text-[#213448]"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Scanning...
+                        </>
+                      ) : (
+                        <>
+                          <FiFolder className="mr-2" /> Browse
+                        </>
+                      )}
                     </Button>
                   </div>
 
@@ -557,10 +624,10 @@ export default function Dashboard() {
                       </p>
                       {fileCount > 0 && (
                         <Badge className="ml-3 bg-[#94B4C1]/20 text-[#213448] border-0 text-sm transition-all duration-300 hover:bg-[#94B4C1]/40">
-                          {fileCount} files
+                          {isCounting ? "Counting..." : `${fileCount} files`}
                         </Badge>
                       )}
-                      {organizeState.selectedFolder && (
+                      {organizeState.selectedFolder && !isCounting && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -629,6 +696,7 @@ export default function Dashboard() {
                             variant="outline"
                             size="sm"
                             className="border-[#94B4C1] text-[#213448] hover:bg-[#94B4C1]/20 h-8 text-sm transition-transform duration-300 hover:scale-105"
+                            disabled={isCounting}
                           >
                             <FiFolder className="mr-1.5" /> Select
                           </Button>
@@ -735,18 +803,10 @@ export default function Dashboard() {
               className={`px-4 py-3 bg-[#94B4C1]/10 flex justify-center items-center transition-all duration-300
               ${screenSize === "sm" ? "px-3 py-2" : ""} sticky bottom-0 z-10`}
             >
-              <div className="flex items-center">
-                {fileCount > 0 && (
-                  <div className="text-xs text-[#213448] animate-fadeIn">
-                    {fileCount} files ready
-                  </div>
-                )}
-              </div>
-
               <div className="flex justify-center w-1/3">
                 <Button
                   className={`bg-[#213448] hover:bg-[#213448]/90 text-white h-8 text-xs transition-all duration-300 w-full
-                  ${isOrganizing ? "" : "hover:scale-105"}
+                  ${isOrganizing || isCounting ? "" : "hover:scale-105"}
                   ${fileCount > 0 ? "animate-pulse-subtle" : ""}`}
                   size="sm"
                   onClick={() => {
@@ -772,7 +832,7 @@ export default function Dashboard() {
                     }
                     StartOrganizerModel(organizeState.selectedFolder);
                   }}
-                  disabled={isOrganizing}
+                  disabled={isOrganizing || isCounting}
                 >
                   {isOrganizing ? (
                     <>
@@ -822,7 +882,7 @@ export default function Dashboard() {
           </Button>
         </div>
         <FolderBrowserDialog
-          open={isDialogBrowserOpen}
+          isOpen={isDialogBrowserOpen}
           onOpenChange={setIsDialogBrowserOpen}
           baseOutput={
             organizeState.useTargetAsOutput
