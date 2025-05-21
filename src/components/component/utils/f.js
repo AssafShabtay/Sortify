@@ -4,16 +4,13 @@ import { z } from "zod";
 import { appDataDir, join, desktopDir } from "@tauri-apps/api/path";
 import { exists, mkdir, readTextFile, stat } from "@tauri-apps/plugin-fs";
 
+// 1. Define the expected schema for the JSON
 const fileSchema = z.object({
   path: z.string(),
   label: z.number(),
 });
-const clusterNamesSchema = z.record(z.string(), z.string());
 
-const folderDataSchema = z.object({
-  cluster_assignments: z.array(fileSchema),
-  cluster_names: clusterNamesSchema,
-});
+const folderDataSchema = z.array(fileSchema);
 
 export async function fetchFolderData() {
   try {
@@ -21,111 +18,109 @@ export async function fetchFolderData() {
 
     if (!(await exists(appDataPath))) {
       await mkdir(appDataPath, { recursive: true });
+      console.log(`Created directory: ${appDataPath}`);
     }
 
     const filePath = await join(appDataPath, "Organization_Structure.json");
+    console.log(filePath);
 
+    // Use Tauri's fs API instead of fetch
     const fileContent = await readTextFile(filePath);
+
+    // Parse the JSON content
     const data = JSON.parse(fileContent);
 
+    // 3. Validate the data structure
     try {
-      folderDataSchema.parse(data);
+      folderDataSchema.parse(data); // Will throw an error if invalid
     } catch (err) {
-      console.error("Invalid data structure in JSON:", err);
-      throw new Error("Invalid data structure in JSON");
+      throw new Error("Invalid data structure in JSON", err);
     }
 
+    // 4. Sanitize the data before using it
     const sanitizedData = sanitizeData(data);
 
     return sanitizedData;
   } catch (error) {
     console.error("Error loading folder data:", error);
-    throw error; // Re-throw the error so callers can handle it
   }
 }
 
+// 5. Sanitize file paths and names (remove malicious content, unwanted characters, etc.)
 function sanitizeData(data) {
-  return {
-    cluster_assignments: data.cluster_assignments.map((item) => ({
-      ...item,
-      path: item.path.replace(/[<>"|?*]+/g, ""),
-      label: item.label,
-    })),
-    cluster_names: data.cluster_names,
-  };
+  return data.map((item) => ({
+    ...item,
+    path: item.path.replace(/[<>"|?*]+/g, ""), // Remove unsafe characters from the path
+    label: item.label, // Ensure label is safe (not requiring sanitization in this case)
+  }));
 }
 
+/**
+ * Transforms the JSON folder data into the format expected by the folder browser
+ * @param data The raw folder data from JSON
+ * @returns Object with folders and folderFiles properties
+ */
 export function transformFolderData(data) {
-  if (!data || !data.cluster_assignments || !data.cluster_names) {
+  if (!data || !Array.isArray(data)) {
     throw new Error("Invalid folder data format");
   }
 
-  const clusterAssignments = data.cluster_assignments;
-  const clusterNames = data.cluster_names;
+  // Get unique labels to create folders
+  const uniqueLabels = [...new Set(data.map((item) => item.label))];
 
-  // Just count items per label first (more efficient than filter)
-  const labelCounts = {};
-  clusterAssignments.forEach((item) => {
-    const label = item.label;
-    labelCounts[label] = (labelCounts[label] || 0) + 1;
-  });
-
-  const uniqueLabels = Object.keys(labelCounts).map(Number);
-
-  // Create folders structure
+  // Create folders from unique labels
   const folders = uniqueLabels.map((label) => {
     const labelStr = String(label);
     const folderName =
-      clusterNames[labelStr] ||
-      (label === -1
+      label === -1
         ? "Unclustered"
         : label === -2
         ? "Corrupt"
-        : `Cluster ${labelStr}`);
+        : `Cluster ${labelStr}`;
 
     return {
       id: labelStr,
       name: folderName,
-      itemCount: labelCounts[label],
+      itemCount: data.filter((item) => item.label === label).length,
       color: getFolderColor(labelStr),
     };
   });
 
-  // Initialize empty folderFiles structure
+  // Create files for each folder
   const folderFiles = {};
+
+  // Initialize empty arrays for each folder
   uniqueLabels.forEach((label) => {
     folderFiles[String(label)] = [];
   });
 
-  // Only process files for selected folders when needed
-  return { folders, folderFiles, rawData: data };
+  // Add files to their respective folders
+  data.forEach((item, index) => {
+    const labelStr = String(item.label);
+    const fileName = extractFileName(item.path);
+    const fileType = getFileTypeFromExtension(fileName);
+
+    const file = {
+      id: `file-${index}`,
+      name: fileName,
+      type: fileType,
+      folderId: labelStr,
+      path: item.path,
+    };
+
+    folderFiles[labelStr].push(file);
+  });
+
+  return { folders, folderFiles };
 }
 
-// Add this new function to load files only when needed:
-export function loadFolderFiles(data, folderId, limit = 100) {
-  if (!data || !data.cluster_assignments) return [];
-
-  const labelNumber = Number(folderId);
-
-  // Only process files for the selected folder with a limit
-  return data.cluster_assignments
-    .filter((item) => item.label === labelNumber)
-    .slice(0, limit) // Only get the first 'limit' items
-    .map((item, index) => {
-      const fileName = extractFileName(item.path);
-      const fileType = getFileTypeFromExtension(fileName);
-
-      return {
-        id: `file-${folderId}-${index}`,
-        name: fileName,
-        type: fileType,
-        folderId: String(item.label),
-        path: item.path,
-      };
-    });
-}
-
+/**
+ * Extract filename from a path
+ * @param path File path
+ * @returns Filename
+ */
 function extractFileName(path) {
+  // Handle both forward and backward slashes
   const parts = path.split(/[/\\]/);
   return parts[parts.length - 1];
 }

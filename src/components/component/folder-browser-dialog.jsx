@@ -63,6 +63,8 @@ export default function FolderBrowserDialog({
   const [selectionBox, setSelectionBox] = useState(null); // { startX, startY, currentX, currentY, folderId }
   const [currentFolderId, setCurrentFolderId] = useState(null); // Currently active/focused folder
 
+  const [rawData, setRawData] = useState(null);
+  const [loadedFolders, setLoadedFolders] = useState(new Set());
   const [selectedFolderIds, setSelectedFolderIds] = useState([]);
   const [folderWidths, setFolderWidths] = useState({});
   const [folderZoom, setFolderZoom] = useState({});
@@ -245,9 +247,10 @@ export default function FolderBrowserDialog({
       setIsLoading(true);
       fetchFolderData()
         .then((data) => {
-          const { folders, folderFiles } = transformFolderData(data);
+          const { folders, folderFiles, rawData } = transformFolderData(data);
           setFolderData(folders);
           setFolderFiles(folderFiles);
+          setRawData(data); // Store raw data for later use
         })
         .catch((error) => {
           setLoadError(error.message || "Failed to load folder data");
@@ -258,6 +261,31 @@ export default function FolderBrowserDialog({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    // When selected folders change, load their contents if not already loaded
+    const loadSelectedFolderContents = async () => {
+      if (!rawData || selectedFolderIds.length === 0) return;
+
+      let updatedFolderFiles = { ...folderFiles };
+      let hasNewData = false;
+
+      for (const folderId of selectedFolderIds) {
+        // Only load data if we haven't already loaded this folder
+        if (!loadedFolders.has(folderId)) {
+          const filesForFolder = loadFolderFiles(rawData, folderId, 100); // Load first 100 files
+          updatedFolderFiles[folderId] = filesForFolder;
+          setLoadedFolders((prev) => new Set([...prev, folderId]));
+          hasNewData = true;
+        }
+      }
+
+      if (hasNewData) {
+        setFolderFiles(updatedFolderFiles);
+      }
+    };
+
+    loadSelectedFolderContents();
+  }, [selectedFolderIds, rawData, loadedFolders]);
   // Function to handle changing the base output folder
   const handleChangeBaseOutput = async () => {
     try {
@@ -1841,40 +1869,45 @@ export default function FolderBrowserDialog({
                         No clusters found
                       </div>
                     ) : (
-                      folderData.map((folder) => (
-                        <FolderCard
-                          key={folder.id}
-                          folder={folder}
-                          isSelected={selectedFolderIds.includes(folder.id)}
-                          onClick={() => handleFolderClick(folder)}
-                          onDragOver={(e) =>
-                            setDragOverFolderId(
-                              handleFolderDragOver(e, folder.id, draggedItems)
-                            )
-                          }
-                          onDragLeave={(e) =>
-                            setDragOverFolderId(handleFolderDragLeave(e))
-                          }
-                          onDrop={(e) => {
-                            handleFolderDrop(e, folder.id, draggedItems);
+                      // Sort folders by ID (which corresponds to label) before mapping
+                      [...folderData]
+                        .sort((a, b) => parseInt(a.id) - parseInt(b.id))
+                        .map((folder) => (
+                          <FolderCard
+                            key={folder.id}
+                            folder={folder}
+                            isSelected={selectedFolderIds.includes(folder.id)}
+                            onClick={() => handleFolderClick(folder)}
+                            onDragOver={(e) =>
+                              setDragOverFolderId(
+                                handleFolderDragOver(e, folder.id, draggedItems)
+                              )
+                            }
+                            onDragLeave={(e) =>
+                              setDragOverFolderId(handleFolderDragLeave(e))
+                            }
+                            onDrop={(e) => {
+                              handleFolderDrop(e, folder.id, draggedItems);
 
-                            setDragOverFolderId(null);
-                            setDraggedItems(null);
-                          }}
-                          isDragOver={dragOverFolderId === folder.id}
-                          data-folder-id={folder.id}
-                          isRenaming={renamingFolderId === folder.id}
-                          onRenameStart={() => handleStartRename(folder)}
-                          onRenameCancel={handleCancelRename}
-                          onRenameSubmit={() => handleRenameSubmit(folder.id)}
-                          newFolderName={
-                            renamingFolderId === folder.id ? newFolderName : ""
-                          }
-                          onNewFolderNameChange={(e) =>
-                            setNewFolderName(e.target.value)
-                          }
-                        />
-                      ))
+                              setDragOverFolderId(null);
+                              setDraggedItems(null);
+                            }}
+                            isDragOver={dragOverFolderId === folder.id}
+                            data-folder-id={folder.id}
+                            isRenaming={renamingFolderId === folder.id}
+                            onRenameStart={() => handleStartRename(folder)}
+                            onRenameCancel={handleCancelRename}
+                            onRenameSubmit={() => handleRenameSubmit(folder.id)}
+                            newFolderName={
+                              renamingFolderId === folder.id
+                                ? newFolderName
+                                : ""
+                            }
+                            onNewFolderNameChange={(e) =>
+                              setNewFolderName(e.target.value)
+                            }
+                          />
+                        ))
                     )}
                   </div>
                 </>
