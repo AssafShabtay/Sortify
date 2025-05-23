@@ -288,3 +288,26 @@ body.file-dragging
 .animate-pulse-subtle {
   animation: pulse-subtle 2s infinite;
 }
+
+.folder-content-container {
+  overflow: hidden !important;
+  contain: layout style paint;
+}
+
+.folder-content-scaled {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.selection-grid {
+  contain: layout;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Fix for zoom overflow */
+.zoomed-content {
+  transform-origin: top left;
+  will-change: transform;
+}

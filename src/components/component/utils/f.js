@@ -1,3 +1,4 @@
+/*
 "use client";
 
 import { z } from "zod";
@@ -55,11 +56,7 @@ function sanitizeData(data) {
   }));
 }
 
-/**
- * Transforms the JSON folder data into the format expected by the folder browser
- * @param data The raw folder data from JSON
- * @returns Object with folders and folderFiles properties
- */
+
 export function transformFolderData(data) {
   if (!data || !Array.isArray(data)) {
     throw new Error("Invalid folder data format");
@@ -114,22 +111,13 @@ export function transformFolderData(data) {
   return { folders, folderFiles };
 }
 
-/**
- * Extract filename from a path
- * @param path File path
- * @returns Filename
- */
 function extractFileName(path) {
   // Handle both forward and backward slashes
   const parts = path.split(/[/\\]/);
   return parts[parts.length - 1];
 }
 
-/**
- * Determine file type based on extension
- * @param fileName Filename with extension
- * @returns File type
- */
+
 function getFileTypeFromExtension(fileName) {
   const extension = fileName.split(".").pop()?.toLowerCase() || "";
 
@@ -210,19 +198,13 @@ function getFileTypeFromExtension(fileName) {
   return typeMap[extension] || "other";
 }
 
-/**
- * Generate a random file size string
- * @returns Random file size string
- */
+
 function getRandomFileSize() {
   const size = Math.random() * 10 + 0.1; // Between 0.1 and 10.1
   return `${size.toFixed(1)} MB`;
 }
 
-/**
- * Generate a random last modified string
- * @returns Random last modified string
- */
+
 function getRandomLastModified(path) {
   //const desktopPath = await desktopDir();
   //const testFilePath = await join(desktopPath, "test.txt"); // Make sure test.txt exists
@@ -241,11 +223,7 @@ function getRandomLastModified(path) {
   return options[Math.floor(Math.random() * options.length)];
 }
 
-/**
- * Assigns a color to a folder based on its ID
- * @param id Folder ID
- * @returns CSS color class
- */
+
 function getFolderColor(id) {
   const colors = [
     "text-blue-500",
@@ -269,3 +247,4 @@ function getFolderColor(id) {
   const colorIndex = Number.parseInt(id, 10) % colors.length;
   return colors[Math.abs(colorIndex)] || "text-primary";
 }
+*/

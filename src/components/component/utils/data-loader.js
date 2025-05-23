@@ -1,8 +1,8 @@
 "use client";
 
 import { z } from "zod";
-import { appDataDir, join, desktopDir } from "@tauri-apps/api/path";
-import { exists, mkdir, readTextFile, stat } from "@tauri-apps/plugin-fs";
+import { appDataDir, join } from "@tauri-apps/api/path";
+import { exists, mkdir, readTextFile } from "@tauri-apps/plugin-fs";
 
 const fileSchema = z.object({
   path: z.string(),
@@ -97,26 +97,26 @@ export function transformFolderData(data) {
     folderFiles[String(label)] = [];
   });
 
-  // Only process files for selected folders when needed
+  // Return the raw data too for lazy loading
   return { folders, folderFiles, rawData: data };
 }
 
 // Add this new function to load files only when needed:
-export function loadFolderFiles(data, folderId, limit = 100) {
+export function loadFolderFiles(data, folderId, limit = 100, offset = 0) {
   if (!data || !data.cluster_assignments) return [];
 
   const labelNumber = Number(folderId);
 
-  // Only process files for the selected folder with a limit
+  // Only process files for the selected folder with pagination
   return data.cluster_assignments
     .filter((item) => item.label === labelNumber)
-    .slice(0, limit) // Only get the first 'limit' items
+    .slice(offset, offset + limit)
     .map((item, index) => {
       const fileName = extractFileName(item.path);
       const fileType = getFileTypeFromExtension(fileName);
 
       return {
-        id: `file-${folderId}-${index}`,
+        id: `file-${folderId}-${offset + index}`,
         name: fileName,
         type: fileType,
         folderId: String(item.label),
@@ -219,32 +219,32 @@ function getFileTypeFromExtension(fileName) {
  * Generate a random file size string
  * @returns Random file size string
  */
-function getRandomFileSize() {
-  const size = Math.random() * 10 + 0.1; // Between 0.1 and 10.1
-  return `${size.toFixed(1)} MB`;
-}
-
-/**
- * Generate a random last modified string
- * @returns Random last modified string
- */
-function getRandomLastModified(path) {
-  //const desktopPath = await desktopDir();
-  //const testFilePath = await join(desktopPath, "test.txt"); // Make sure test.txt exists
-  // const metadata = await stat(testFilePath);
-  //const metadata = await stat("C:/Users/shabt/Desktop/test.txt");
-  const options = [
-    "1 day ago",
-    "2 days ago",
-    "3 days ago",
-    "1 week ago",
-    "2 weeks ago",
-    "Yesterday",
-    "1 month ago",
-  ];
-
-  return options[Math.floor(Math.random() * options.length)];
-}
+//function getRandomFileSize() {
+//  const size = Math.random() * 10 + 0.1; // Between 0.1 and 10.1
+//  return `${size.toFixed(1)} MB`;
+//}
+//
+///**
+// * Generate a random last modified string
+// * @returns Random last modified string
+// */
+//function getRandomLastModified(path) {
+//  //const desktopPath = await desktopDir();
+//  //const testFilePath = await join(desktopPath, "test.txt"); // Make sure test.txt exists
+//  // const metadata = await stat(testFilePath);
+//  //const metadata = await stat("C:/Users/shabt/Desktop/test.txt");
+//  const options = [
+//    "1 day ago",
+//    "2 days ago",
+//    "3 days ago",
+//    "1 week ago",
+//    "2 weeks ago",
+//    "Yesterday",
+//    "1 month ago",
+//  ];
+//
+//  return options[Math.floor(Math.random() * options.length)];
+//}
 
 /**
  * Assigns a color to a folder based on its ID

@@ -8,6 +8,7 @@ use tauri::Emitter;
 use tauri::Manager;
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
+use std::ffi::OsStr;
 
 #[derive(Debug, Deserialize)]
 struct FileLabel {
@@ -16,44 +17,32 @@ struct FileLabel {
 }
 
 #[tauri::command]
-pub fn count_files_in_folder(folder_path: String, treat_toplevel_folders_as_one: bool) -> i32 {
-    let extensions = vec!["pdf", "docx", "txt", "doc", "tex", "epub"];
-    let path = Path::new(&folder_path); // Convert String to Path
+pub fn count_files_in_folder(folder_path: String) -> i32 {
+
+    const EXTENSIONS: &[&str] = &["pdf", "docx", "txt", "doc", "tex", "epub", "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "webp", "ico", "heif", "heic", "avif", "eps", "dds", "dis", "im", "mpo", "msp", "pxc", "pfm", "ppm", "tga", "spider", "sgi", "xbm", "psd", "svg"];
+    count_recursive(Path::new(&folder_path), EXTENSIONS)
+}
+
+fn count_recursive(path: &Path, extensions: &[&str]) -> i32 {
     let mut count = 0;
-    let mut folder_count = 0;
 
-    if path.is_dir() {
-        if let Ok(entries) = fs::read_dir(path) {
-            for entry in entries.flatten() {
-                let entry_path = entry.path();
-
-                if entry_path.is_dir() {
-                    let subdir_count =
-                        count_files_in_folder(entry_path.to_string_lossy().to_string(), false);
-
-                    if treat_toplevel_folders_as_one {
-                        if subdir_count > 0 {
-                            folder_count += 1;
-                        }
-                    } else {
-                        count += subdir_count;
-                    }
-                } else {
-                    // Check file extension
-                    if let Some(extension) = entry_path.extension() {
-                        if extensions.contains(&extension.to_str().unwrap_or("")) {
-                            count += 1;
-                        }
-                    }
+    if let Ok(entries) = fs::read_dir(path) {
+        for entry in entries.flatten() {
+            let entry_path = entry.path();
+            
+            if entry_path.is_dir() {
+                // Direct path reference, no string conversion
+                count += count_recursive(&entry_path, extensions);
+            } else if let Some(extension) = entry_path.extension().and_then(OsStr::to_str) {
+                // More efficient extension checking
+                if extensions.contains(&extension) {
+                    count += 1;
                 }
             }
         }
     }
-    if treat_toplevel_folders_as_one {
-        return folder_count;
-    } else {
-        return count;
-    }
+
+    count
 }
 
 #[tauri::command]

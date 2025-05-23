@@ -262,21 +262,21 @@ model = SentenceTransformer("sentence-transformers/all-mpnet-base-v2")
 def extract_file_summary(file_path):
     print(f"Processing file: {file_path}")
     start_time = time.time()
-    extension = os.path.splitext(file_path)[-1].lower()
+    extension = file_path.stem
     try:
-        if extension == ".pdf":
+        if extension == "pdf":
             text = extract_pdf_text(Path(file_path))
-        elif extension == ".docx":
+        elif extension == "docx":
             text = extract_docx_text(Path(file_path))
-        elif extension == ".txt":
+        elif extension == "txt":
             text = extract_txt_text(Path(file_path))
-        elif extension == ".doc":
+        elif extension == "doc":
             text = extract_doc_text(Path(file_path))
-        elif extension == ".tex":
+        elif extension == "tex":
             text = extract_tex_text(Path(file_path))
-        elif extension == ".epub":
+        elif extension == "epub":
             text = extract_epub_text(Path(file_path))
-        elif extension in (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp", ".ico", ".heif", ".heic", ".avif", ".eps", ".dds", ".dis", ".im", ".mpo", ".msp", ".pxc", ".pfm", ".ppm", ".tga", ".spider", ".sgi", ".xbm", "psd", ".svg"):
+        elif extension in ("jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "webp", "ico", "heif", "heic", "avif", "eps", "dds", "dis", "im", "mpo", "msp", "pxc", "pfm", "ppm", "tga", "spider", "sgi", "xbm", "psd", "svg"):
             text = caption_image(Path(file_path))
             print(f"Image caption: {text}")
             return text
