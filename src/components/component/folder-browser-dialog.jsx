@@ -136,21 +136,26 @@ export default function FolderBrowserDialog({
 
       selectedFolderIds.forEach((id) => {
         newWidths[id] = equalWidth;
-        newZoom[id] = 1.0; // Reset zoom to 1.0 when selection changes
+        newZoom[id] = 1.0;
       });
 
+      // Batch these state updates to prevent multiple re-renders
       setSelectedFiles({});
       setSelectionBox(null);
       setIsSelecting(false);
-      setFolderWidths(newWidths);
-      setFolderZoom(newZoom);
 
-      // Force a recalculation of container width after a short delay
-      setTimeout(() => {
-        if (containerRef.current) {
-          setContainerWidth(containerRef.current.offsetWidth);
-        }
-      }, 50);
+      // Use requestAnimationFrame to defer heavy operations
+      requestAnimationFrame(() => {
+        setFolderWidths(newWidths);
+        setFolderZoom(newZoom);
+
+        // Defer container width calculation
+        requestAnimationFrame(() => {
+          if (containerRef.current) {
+            setContainerWidth(containerRef.current.offsetWidth);
+          }
+        });
+      });
     }
   }, [selectedFolderIds.length]);
 
@@ -1630,7 +1635,7 @@ export default function FolderBrowserDialog({
                 onClick={handleRevertChanges}
                 disabled={isSaving || isLoading || !hasChanges}
                 variant="outline"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 btn-animated"
               >
                 <RotateCcw className="h-4 w-4" />
                 {isLoading ? "Reverting..." : "Revert Changes"}
@@ -1639,7 +1644,7 @@ export default function FolderBrowserDialog({
                 <DropdownMenuTrigger asChild>
                   <Button
                     disabled={isSaving || isLoading}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-2 btn-animated"
                   >
                     <Save className="h-4 w-4" />
                     {isSaving ? "Saving..." : "Save Changes"}
@@ -1698,7 +1703,7 @@ export default function FolderBrowserDialog({
               size="sm"
               onClick={handleChangeBaseOutput}
               disabled={isSaving || isLoading || isChangingBaseOutput}
-              className="text-xs h-7 gap-1 mt-1 sm:mt-0"
+              className="text-xs h-7 gap-1 mt-1 sm:mt-0 btn-animated"
             >
               {isChangingBaseOutput ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -1743,7 +1748,7 @@ export default function FolderBrowserDialog({
               <Button
                 size="sm"
                 variant="outline"
-                className="flex-shrink-0 mt-1"
+                className="flex-shrink-0 mt-1 btn-animated"
                 title="New Cluster"
                 onClick={handleCreateNewFolder}
               >
@@ -1763,7 +1768,7 @@ export default function FolderBrowserDialog({
               style={{ height: "calc(100% - 40px)" }}
             >
               {isLoading ? (
-                <div className="flex items-center justify-center h-full">
+                <div className="flex items-center justify-center h-full animate-fadeIn">
                   <Loader2 className="h-8 w-8 text-primary animate-spin" />
                   <span className="ml-2 text-sm">Loading clusters...</span>
                 </div>
@@ -1774,7 +1779,7 @@ export default function FolderBrowserDialog({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="mt-4"
+                    className="mt-4 btn-animated"
                     onClick={() => {
                       setIsLoading(true);
                       setLoadError(null);
@@ -2070,7 +2075,7 @@ export default function FolderBrowserDialog({
                             ) : (
                               <div
                                 className={cn(
-                                  "grid p-2 sm:p-3 selection-grid",
+                                  "grid p-2 sm:p-3 selection-grid zoom-smooth",
                                   displayMode === "micro"
                                     ? `gap-1`
                                     : displayMode === "compact"

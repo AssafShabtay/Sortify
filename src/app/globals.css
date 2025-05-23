@@ -8,84 +8,54 @@ body {
 
 @layer base {
   :root {
-    /* New color theme */
-    --primary-blue: 84, 119, 146; /*rgb(84, 119, 146) */
-    --secondary-blue: 148, 180, 193; /*rgb(148, 180, 193) */
-    --accent-cream: 236, 239, 202; /*rgb(236, 239, 202) */
-    --accent-green: 175, 214, 157; /*rgb(175, 214, 157) */
+    /* Color theme - keeping your existing theme */
+    --primary-blue: 84, 119, 146;
+    --secondary-blue: 148, 180, 193;
+    --accent-cream: 236, 239, 202;
+    --accent-green: 175, 214, 157;
 
-    /* Convert to light mode theme */
     --background: 0 0% 100%;
-    --foreground: 207, 100%, 7.1%; /* Based on hsl(207, 100.00%, 7.10%) */
-
+    --foreground: 207, 100%, 7.1%;
     --card: 0 0% 100%;
     --card-foreground: 204 26% 45%;
-
     --popover: 0 0% 100%;
     --popover-foreground: 204 26% 45%;
-
-    --primary: 157, 64.3%, 11%; /*hsl(157, 64.30%, 11.00%) */
-    --primary-foreground: 0 0% 98%; /*hsl(157, 64.30%, 11.00%) */
-
-    --secondary: 197 31% 67%; /* #94B4C1 */
+    --primary: 157, 64.3%, 11%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 197 31% 67%;
     --secondary-foreground: 204 26% 25%;
-
-    --muted: 84 51% 86%; /* Lighter version of #ECEFCA */
+    --muted: 84 51% 86%;
     --muted-foreground: 204 26% 35%;
-
-    --accent: 84 51% 86%; /* #ECEFCA */
+    --accent: 84 51% 86%;
     --accent-foreground: 204 26% 25%;
-
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-
-    --border: 197 31% 80%; /* Lighter #94B4C1 */
+    --border: 197 31% 80%;
     --input: 197 31% 80%;
     --ring: 204 26% 45%;
-
-    --chart-1: 204 26% 45%; /* #547792 */
-    --chart-2: 197 31% 67%; /* #94B4C1 */
-    --chart-3: 84 51% 86%; /* #ECEFCA */
-    --chart-4: 107 42% 73%; /* #AFD69D */
-    --chart-5: 204 40% 35%; /* Darker #547792 */
-
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 204 26% 20%; /* Darker #547792 */
-    --foreground: 84 51% 95%; /* Lighter #ECEFCA */
-
+    --background: 204 26% 20%;
+    --foreground: 84 51% 95%;
     --card: 204 26% 20%;
     --card-foreground: 84 51% 95%;
-
     --popover: 204 26% 20%;
     --popover-foreground: 84 51% 95%;
-
-    --primary: 197 31% 67%; /* #94B4C1 */
+    --primary: 197 31% 67%;
     --primary-foreground: 204 26% 20%;
-
-    --secondary: 204 26% 30%; /* Darker than #547792 */
+    --secondary: 204 26% 30%;
     --secondary-foreground: 84 51% 95%;
-
     --muted: 204 26% 30%;
     --muted-foreground: 197 31% 80%;
-
-    --accent: 107 42% 73%; /* #AFD69D */
+    --accent: 107 42% 73%;
     --accent-foreground: 204 26% 20%;
-
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 84 51% 95%;
-
     --border: 204 26% 35%;
     --input: 204 26% 35%;
     --ring: 197 31% 67%;
-
-    --chart-1: 197 31% 67%; /* #94B4C1 */
-    --chart-2: 107 42% 73%; /* #AFD69D */
-    --chart-3: 84 51% 86%; /* #ECEFCA */
-    --chart-4: 204 26% 45%; /* #547792 */
-    --chart-5: 197 40% 50%; /* Middle #94B4C1 */
   }
 }
 
@@ -93,158 +63,56 @@ body {
   * {
     @apply border-border;
   }
-
   body {
     @apply bg-background text-foreground;
   }
 }
 
-.selection-box {
-  position: absolute;
-  border: 2px dashed var(--primary);
-  background-color: rgba(var(--primary), 0.1);
-  z-index: 50;
-  pointer-events: none;
-}
+/* Simple, reliable animations */
 
-.file-selected,
-.file-card.file-selected,
-div.file-selected {
-  background-color: rgba(var(--primary-blue), 0.15) !important;
-  border-color: rgb(var(--primary-blue)) !important;
-  outline: 1px solid rgb(var(--primary-blue)) !important;
-  z-index: 1;
-}
-
-/* Properly handle hover states */
-.file-selected:hover {
-  background-color: rgba(var(--primary-blue), 0.25) !important;
-}
-
-/* Ensure content has proper z-index */
-.file-card .card-content {
-  position: relative;
-  z-index: 5;
-}
-
-/* Ensure no pseudo-elements are causing the issue */
-.file-card::before,
-.file-card::after {
-  display: none !important;
-}
-
-/* Ensure cursor reset works reliably */
-.cursor-reset,
-.cursor-reset * {
-  cursor: default !important;
-}
-
-.force-cursor-reset {
-  cursor: auto !important;
-}
-
-/* Fix for selection box */
-#selection-box {
-  z-index: 50;
-  pointer-events: none;
-  border-color: rgb(var(--primary-blue)) !important;
-  background-color: rgba(var(--primary-blue), 0.1) !important;
-}
-
-/* Ensure drag-related styles work properly */
-.file-dragging {
-  cursor: move !important;
-}
-
-/* Ensure proper stacking for drag targets */
-.drag-target-active {
-  z-index: 10;
-  background-color: rgba(var(--primary-blue), 0.1);
-  border-color: rgb(var(--primary-blue));
-}
-
-/* File and folder color adjustments */
-.folder-icon {
-  color: #547792 !important;
-}
-
-.folder-open-icon {
-  color: #94b4c1 !important;
-}
-
-.text-blue-500 {
-  color: #547792 !important;
-}
-
-.text-green-500 {
-  color: #afd69d !important;
-}
-
-.text-purple-500 {
-  color: #94b4c1 !important;
-}
-
-.text-red-500 {
-  color: #547792 !important;
-}
-
-.text-gray-500 {
-  color: #94b4c1 !important;
-}
-
-.drag-target-active {
-  @apply ring-2 ring-primary bg-accent/50;
-  transition: all 0.2s ease-in-out;
-}
-
-/* Add a specific animation for when dragging starts/ends */
-@keyframes highlightTarget {
-  0% {
-    background-color: theme("colors.accent.DEFAULT / 0%");
+/* Loading animations */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
   }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%,
   100% {
-    background-color: theme("colors.accent.DEFAULT / 50%");
+    opacity: 1;
   }
-}
-
-/* Make sure cursor reset happens smoothly */
-.cursor-reset * {
-  cursor: default !important;
-}
-
-/* Add this to better control the highlight behavior */
-[data-folder-id].drag-target-active {
-  animation: highlightTarget 0.3s ease forwards;
-}
-
-/* Make sure we don't highlight folders that shouldn't be targets */
-[data-folder-id] .selection-grid [draggable="true"] {
-  cursor: grab;
-}
-
-/* When dragging */
-body.file-dragging
-  [data-folder-id]:not(.drag-target-active):not([data-dragging="true"]) {
-  transition: transform 0.2s ease;
-}
-
-body.file-dragging
-  [data-folder-id]:not(.drag-target-active):hover:not([data-dragging="true"]) {
-  transform: scale(1.01);
+  50% {
+    opacity: 0.5;
+  }
 }
 
 @keyframes fadeIn {
   from {
     opacity: 0;
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
   }
 }
 
 @keyframes scaleIn {
   from {
-    transform: scale(0.9);
+    transform: scale(0.95);
     opacity: 0;
   }
   to {
@@ -253,61 +121,266 @@ body.file-dragging
   }
 }
 
-@keyframes bounce-subtle {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
+/* Hover effects */
+@keyframes gentleHover {
+  to {
     transform: translateY(-2px);
   }
 }
 
-@keyframes pulse-subtle {
+@keyframes gentlePress {
+  to {
+    transform: translateY(0px) scale(0.98);
+  }
+}
+
+/* Selection animation */
+@keyframes selectionPulse {
   0%,
   100% {
-    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(var(--primary-blue), 0.4);
   }
   50% {
+    box-shadow: 0 0 0 4px rgba(var(--primary-blue), 0.1);
+  }
+}
+
+/* Drag animations */
+@keyframes dragStart {
+  to {
+    transform: scale(1.05) rotate(2deg);
     opacity: 0.8;
   }
 }
 
+@keyframes dragTargetActive {
+  0% {
+    background-color: transparent;
+  }
+  100% {
+    background-color: rgba(var(--primary-blue), 0.1);
+  }
+}
+
+/* Apply animations to classes */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
 .animate-fadeIn {
-  animation: fadeIn 0.5s ease-out forwards;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slideIn {
+  animation: slideIn 0.3s ease-out;
 }
 
 .animate-scaleIn {
-  animation: scaleIn 0.3s ease-out forwards;
+  animation: scaleIn 0.2s ease-out;
 }
 
-.animate-bounce-subtle {
-  animation: bounce-subtle 2s infinite;
+/* Component-specific animations */
+
+/* File cards */
+.file-card {
+  transition: all 0.2s ease;
 }
 
-.animate-pulse-subtle {
-  animation: pulse-subtle 2s infinite;
+.file-card:hover {
+  animation: gentleHover 0.2s ease-out forwards;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.folder-content-container {
-  overflow: hidden !important;
-  contain: layout style paint;
+.file-card:active {
+  animation: gentlePress 0.1s ease-out;
 }
 
-.folder-content-scaled {
-  width: 100%;
-  height: 100%;
-  box-sizing: border-box;
+.file-card.file-selected {
+  background-color: rgba(var(--primary-blue), 0.15) !important;
+  border-color: rgb(var(--primary-blue)) !important;
+  animation: selectionPulse 2s infinite;
 }
 
-.selection-grid {
-  contain: layout;
-  max-width: 100%;
-  overflow: hidden;
+.file-card.dragging {
+  animation: dragStart 0.2s ease-out forwards;
 }
 
-/* Fix for zoom overflow */
-.zoomed-content {
+/* Folder cards */
+.folder-card {
+  transition: all 0.2s ease;
+}
+
+.folder-card:hover {
+  animation: gentleHover 0.2s ease-out forwards;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.folder-card[data-selected="true"] {
+  background-color: rgba(var(--primary-blue), 0.1);
+  border-color: rgb(var(--primary-blue));
+}
+
+.folder-card.drag-target-active {
+  animation: dragTargetActive 0.3s ease-out forwards;
+  border-color: rgb(var(--primary-blue)) !important;
+}
+
+/* Selection box */
+.selection-box,
+#selection-box {
+  border: 2px dashed rgb(var(--primary-blue));
+  background-color: rgba(var(--primary-blue), 0.1);
+  animation: scaleIn 0.1s ease-out;
+}
+
+/* Buttons */
+.btn-animated {
+  transition: all 0.15s ease;
+}
+
+.btn-animated:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn-animated:active {
+  transform: translateY(0);
+}
+
+/* Drag and drop states */
+.file-dragging {
+  cursor: grabbing !important;
+}
+
+.file-dragging * {
+  cursor: grabbing !important;
+}
+
+.drag-target-active {
+  background-color: rgba(var(--primary-blue), 0.1) !important;
+  border-color: rgb(var(--primary-blue)) !important;
+  box-shadow: 0 0 0 2px rgba(var(--primary-blue), 0.3) !important;
+}
+
+/* Cursor management */
+.cursor-reset,
+.cursor-reset * {
+  cursor: default !important;
+}
+
+/* Stagger animation for grids */
+.stagger-children > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.stagger-children > *:nth-child(2) {
+  animation-delay: 50ms;
+}
+.stagger-children > *:nth-child(3) {
+  animation-delay: 100ms;
+}
+.stagger-children > *:nth-child(4) {
+  animation-delay: 150ms;
+}
+.stagger-children > *:nth-child(5) {
+  animation-delay: 200ms;
+}
+.stagger-children > *:nth-child(6) {
+  animation-delay: 250ms;
+}
+.stagger-children > *:nth-child(n + 7) {
+  animation-delay: 300ms;
+}
+
+.stagger-children > * {
+  animation: fadeIn 0.3s ease-out both;
+}
+
+/* Loading states */
+.loading-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading-shimmer 1.5s infinite;
+}
+
+@keyframes loading-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Zoom transitions */
+.zoom-smooth {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   transform-origin: top left;
+}
+
+/* Panel resize indicator */
+.resize-active {
+  user-select: none;
+}
+
+.resize-separator {
+  transition: background-color 0.2s ease;
+}
+
+.resize-separator:hover {
+  background-color: rgba(var(--primary-blue), 0.1);
+}
+
+.resize-separator.resizing {
+  background-color: rgba(var(--primary-blue), 0.2);
+}
+
+/* Dialog animations */
+.dialog-overlay {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.dialog-content {
+  animation: scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Notification/Toast */
+.toast-notification {
+  animation: slideIn 0.3s ease-out;
+}
+
+.toast-notification.exit {
+  animation: slideIn 0.3s ease-in reverse;
+}
+
+/* File icons color improvements */
+.text-blue-500 {
+  color: #547792 !important;
+}
+.text-green-500 {
+  color: #afd69d !important;
+}
+.text-purple-500 {
+  color: #94b4c1 !important;
+}
+.text-red-500 {
+  color: #547792 !important;
+}
+.text-gray-500 {
+  color: #94b4c1 !important;
+}
+
+/* Performance optimizations */
+.file-card,
+.folder-card {
   will-change: transform;
+  backface-visibility: hidden;
+}
+
+.file-card:not(:hover),
+.folder-card:not(:hover) {
+  will-change: auto;
 }

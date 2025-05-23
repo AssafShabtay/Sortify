@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-
-import { Folder, FolderOpen, MoreVertical, Check } from "lucide-react";
+import { Folder, FolderOpen, MoreVertical, Check } from "lucide-react"; // Add Check import
 import React from "react";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,7 +11,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 export function FolderCard({
@@ -30,10 +33,14 @@ export function FolderCard({
   onRenameSubmit,
   newFolderName,
   onNewFolderNameChange,
+  className,
   ...props
 }) {
   const [isHovered, setIsHovered] = useState(false);
+  // Remove unused variables:
+  // const [isNameTruncated, setIsNameTruncated] = useState(false);
   const inputRef = useRef(null);
+  // const nameRef = useRef(null);
 
   // Focus the input when entering rename mode
   useEffect(() => {
@@ -65,28 +72,46 @@ export function FolderCard({
     onDrop && onDrop(e);
   };
 
-  // Prevent click propagation when in rename mode
+  // IMPORTANT: This should be the ONLY click handler
   const handleCardClick = (e) => {
     if (isRenaming) {
       e.stopPropagation();
       return;
     }
+    e.stopPropagation();
+    e.preventDefault();
     onClick && onClick(e);
   };
+
+  // Define the component inline instead of as separate function
+  const folderNameContent = (
+    <h3
+      className="font-medium text-sm break-words line-clamp-2 leading-tight"
+      style={{
+        wordBreak: "break-word",
+        overflowWrap: "anywhere",
+        hyphens: "auto",
+      }}
+    >
+      {folder.name}
+    </h3>
+  );
 
   return (
     <div
       data-folder-id={folder.id}
       data-selected={isSelected}
       className={cn(
+        "folder-card",
         "border rounded-lg transition-all relative",
-        "p-3 sm:p-4", // Increased padding for better spacing
-        "hover:shadow-md", // Add shadow on hover for depth
+        "p-3 sm:p-4",
+        "hover:shadow-md",
         isSelected
           ? "bg-accent border-primary shadow-sm"
           : "hover:bg-accent/50",
         isDragOver ? "ring-2 ring-primary bg-accent/70" : "",
-        isRenaming ? "ring-2 ring-primary" : "cursor-pointer"
+        isRenaming ? "ring-2 ring-primary" : "cursor-pointer",
+        className
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -154,9 +179,13 @@ export function FolderCard({
               value={newFolderName}
               onChange={onNewFolderNameChange}
               onKeyDown={handleKeyDown}
-              className="flex-1"
+              className="flex-1 text-sm"
               placeholder="Folder name"
               onClick={(e) => e.stopPropagation()}
+              style={{
+                wordBreak: "break-word",
+                overflowWrap: "anywhere",
+              }}
             />
           </div>
           <div className="flex justify-end gap-2 mt-1">
@@ -197,9 +226,24 @@ export function FolderCard({
             />
           )}
           <div className="min-w-0 flex-1">
-            <h3 className="font-medium text-sm break-words line-clamp-2">
-              {folder.name}
-            </h3>
+            {folder.name.length > 50 ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="cursor-help">{folderNameContent}</div>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="bottom"
+                    align="start"
+                    className="max-w-xs break-words"
+                  >
+                    <p className="text-sm">{folder.name}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              folderNameContent
+            )}
             <p className="text-xs text-muted-foreground mt-1">
               {folder.itemCount} items
             </p>
@@ -210,6 +254,7 @@ export function FolderCard({
   );
 }
 
+// Keep your ResizableSeparator component as is...
 export function ResizableSeparator({
   isResizing,
   children,

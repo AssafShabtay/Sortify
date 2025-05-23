@@ -740,14 +740,17 @@ try:
         # Ensure all unique labels from the dataset are in the cluster_names_map,
         # even if some were skipped (like very small ones handled explicitly).
         # This ensures the JSON includes names for all labels present in assignments.
+        label_number = 1
         for label in dataset['label'].unique():
             if label not in cluster_names_map:
                 if label == -1:
                     cluster_names_map[label] = "Miscellaneous"
+                if label == -2:
+                    cluster_names_map[label] = "corrupt"
                 elif len(dataset[dataset['label'] == label]) < 2:
-                    cluster_names_map[label] = f"Cluster {label} (Small)"
+                    cluster_names_map[label] = f"Manual naming is required({label_number})"
                 else:
-                    cluster_names_map[label] = f"Cluster {label} (Unnamed)"
+                    cluster_names_map[label] = f"Manual naming is required({label_number})"
                 cluster_names_map_str_keys = {str(k): v for k, v in cluster_names_map.items()}
 
         # Combine into the final output structure

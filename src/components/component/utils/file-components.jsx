@@ -52,6 +52,7 @@ export function FileCard({
   const handleDragStart = (e) => {
     e.dataTransfer.effectAllowed = "move";
 
+    e.target.classList.add("dragging");
     // Create a more visually appealing drag image that looks like the file card
     const dragPreview = document.createElement("div");
     dragPreview.className = "drag-preview";
@@ -180,7 +181,9 @@ export function FileCard({
     if (onDragEnd) {
       onDragEnd(e);
     }
-
+    e.target.classList.remove("dragging");
+    document.body.classList.remove("file-dragging");
+    document.body.style.cursor = "";
     // Reset cursor explicitly
     document.body.classList.remove("file-dragging");
     document.body.style.cursor = "";
@@ -208,6 +211,7 @@ export function FileCard({
       <div
         ref={fileRef}
         className={cn(
+          "file-card",
           "border rounded-lg p-1 hover:bg-accent/50 transition-colors w-full overflow-hidden cursor-pointer",
           isSelected && "file-selected",
           isDragging ? "opacity-50 ring-2 ring-primary" : ""
@@ -245,6 +249,7 @@ export function FileCard({
       <div
         ref={fileRef}
         className={cn(
+          "file-card",
           "border rounded-lg p-1.5 hover:bg-accent/50 transition-colors w-full overflow-hidden cursor-pointer",
           isSelected && "file-selected",
           isDragging ? "opacity-50 ring-2 ring-primary" : ""
@@ -281,6 +286,7 @@ export function FileCard({
     <div
       ref={fileRef}
       className={cn(
+        "file-card",
         "border rounded-lg p-3 hover:bg-accent/50 transition-colors w-full overflow-hidden cursor-pointer",
         isSelected && "file-selected",
         isDragging ? "opacity-50 ring-2 ring-primary" : ""

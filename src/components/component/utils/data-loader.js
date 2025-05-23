@@ -4,10 +4,9 @@ import { z } from "zod";
 import { appDataDir, join } from "@tauri-apps/api/path";
 import { exists, mkdir, readTextFile } from "@tauri-apps/plugin-fs";
 
-// 1. Define the expected schema for the JSON
 const fileSchema = z.object({
   path: z.string(),
-  cluster_name: z.number(),
+  cluster_name: z.string(),
 });
 
 const folderDataSchema = z.array(fileSchema);
@@ -24,20 +23,16 @@ export async function fetchFolderData() {
     const filePath = await join(appDataPath, "Organization_Structure.json");
     console.log(filePath);
 
-    // Use Tauri's fs API instead of fetch
     const fileContent = await readTextFile(filePath);
 
-    // Parse the JSON content
     const data = JSON.parse(fileContent);
 
-    // 3. Validate the data structure
     try {
-      folderDataSchema.parse(data); // Will throw an error if invalid
+      folderDataSchema.parse(data);
     } catch (err) {
       throw new Error("Invalid data structure in JSON", err);
     }
 
-    // 4. Sanitize the data before using it
     const sanitizedData = sanitizeData(data);
 
     return sanitizedData;
@@ -46,12 +41,11 @@ export async function fetchFolderData() {
   }
 }
 
-// 5. Sanitize file paths and names (remove malicious content, unwanted characters, etc.)
 function sanitizeData(data) {
   return data.map((item) => ({
     ...item,
-    path: item.path.replace(/[<>"|?*]+/g, ""), // Remove unsafe characters from the path
-    cluster_name: item.cluster_name, // Ensure label is safe (not requiring sanitization in this case)
+    path: item.path.replace(/[<>"|?*]+/g, ""),
+    cluster_name: item.cluster_name.replace(/[<>"|?*]+/g, ""),
   }));
 }
 
@@ -60,38 +54,35 @@ export function transformFolderData(data) {
     throw new Error("Invalid folder data format");
   }
 
-  // Get unique labels to create folders
-  const uniqueLabels = [...new Set(data.map((item) => item.cluster_name))];
+  const uniqueClusterNames = [
+    ...new Set(data.map((item) => item.cluster_name)),
+  ];
 
-  // Create folders from unique labels
-  const folders = uniqueLabels.map((cluster_name) => {
-    const labelStr = String(cluster_name);
-    const folderName =
-      cluster_name === -1
-        ? "Unclustered"
-        : cluster_name === -2
-        ? "Corrupt"
-        : `Cluster ${labelStr}`;
+  const folders = uniqueClusterNames.map((clusterName, index) => {
+    const folderId = `cluster-${index}`;
 
     return {
-      id: labelStr,
-      name: folderName,
-      itemCount: data.filter((item) => item.label === label).length,
-      color: getFolderColor(labelStr),
+      id: folderId,
+      name: clusterName,
+      itemCount: data.filter((item) => item.cluster_name === clusterName)
+        .length,
+      color: getFolderColor(clusterName, index),
     };
   });
 
-  // Create files for each folder
-  const folderFiles = {};
-
-  // Initialize empty arrays for each folder
-  uniqueLabels.forEach((label) => {
-    folderFiles[String(label)] = [];
+  const clusterNameToFolderId = {};
+  folders.forEach((folder) => {
+    clusterNameToFolderId[folder.name] = folder.id;
   });
 
-  // Add files to their respective folders
+  const folderFiles = {};
+
+  folders.forEach((folder) => {
+    folderFiles[folder.id] = [];
+  });
+
   data.forEach((item, index) => {
-    const labelStr = String(item.label);
+    const folderId = clusterNameToFolderId[item.cluster_name];
     const fileName = extractFileName(item.path);
     const fileType = getFileTypeFromExtension(fileName);
 
@@ -99,11 +90,11 @@ export function transformFolderData(data) {
       id: `file-${index}`,
       name: fileName,
       type: fileType,
-      folderId: labelStr,
+      folderId: folderId,
       path: item.path,
     };
 
-    folderFiles[labelStr].push(file);
+    folderFiles[folderId].push(file);
   });
 
   return { folders, folderFiles };
