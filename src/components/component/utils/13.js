@@ -1,4 +1,3 @@
-/*
 "use client";
 
 import { z } from "zod";
@@ -55,7 +54,6 @@ function sanitizeData(data) {
     label: item.label, // Ensure label is safe (not requiring sanitization in this case)
   }));
 }
-
 
 export function transformFolderData(data) {
   if (!data || !Array.isArray(data)) {
@@ -116,7 +114,6 @@ function extractFileName(path) {
   const parts = path.split(/[/\\]/);
   return parts[parts.length - 1];
 }
-
 
 function getFileTypeFromExtension(fileName) {
   const extension = fileName.split(".").pop()?.toLowerCase() || "";
@@ -198,12 +195,10 @@ function getFileTypeFromExtension(fileName) {
   return typeMap[extension] || "other";
 }
 
-
 function getRandomFileSize() {
   const size = Math.random() * 10 + 0.1; // Between 0.1 and 10.1
   return `${size.toFixed(1)} MB`;
 }
-
 
 function getRandomLastModified(path) {
   //const desktopPath = await desktopDir();
@@ -222,7 +217,6 @@ function getRandomLastModified(path) {
 
   return options[Math.floor(Math.random() * options.length)];
 }
-
 
 function getFolderColor(id) {
   const colors = [
@@ -247,4 +241,3 @@ function getFolderColor(id) {
   const colorIndex = Number.parseInt(id, 10) % colors.length;
   return colors[Math.abs(colorIndex)] || "text-primary";
 }
-*/

@@ -262,21 +262,21 @@ model = SentenceTransformer("sentence-transformers/all-mpnet-base-v2")
 def extract_file_summary(file_path):
     print(f"Processing file: {file_path}")
     start_time = time.time()
-    extension = file_path.stem
+    extension = os.path.splitext(file_path)[-1].lower()
     try:
-        if extension == "pdf":
+        if extension == ".pdf":
             text = extract_pdf_text(Path(file_path))
-        elif extension == "docx":
+        elif extension == ".docx":
             text = extract_docx_text(Path(file_path))
-        elif extension == "txt":
+        elif extension == ".txt":
             text = extract_txt_text(Path(file_path))
-        elif extension == "doc":
+        elif extension == ".doc":
             text = extract_doc_text(Path(file_path))
-        elif extension == "tex":
+        elif extension == ".tex":
             text = extract_tex_text(Path(file_path))
-        elif extension == "epub":
+        elif extension == ".epub":
             text = extract_epub_text(Path(file_path))
-        elif extension in ("jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "webp", "ico", "heif", "heic", "avif", "eps", "dds", "dis", "im", "mpo", "msp", "pxc", "pfm", "ppm", "tga", "spider", "sgi", "xbm", "psd", "svg"):
+        elif extension in (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp", ".ico", ".heif", ".heic", ".avif", ".eps", ".dds", ".dis", ".im", ".mpo", ".msp", ".pxc", ".pfm", ".ppm", ".tga", ".spider", ".sgi", ".xbm", "psd", ".svg"):
             text = caption_image(Path(file_path))
             print(f"Image caption: {text}")
             return text
@@ -728,31 +728,30 @@ try:
         #-------------------Output JSON (Modified Structure) --------------------------------------------------
 
         # Create the list of file assignments
-        cluster_assignments = [
-            {"path": row['path'], "label": int(row['label'])}
-            for index, row in dataset.iterrows()
+        cluster_assignments_with_names = [
+        {
+            "path": row['path'], 
+            "cluster_name": cluster_names_map[row['label']]
+        }
+        for index, row in dataset.iterrows()
         ]
+
 
         # Ensure all unique labels from the dataset are in the cluster_names_map,
         # even if some were skipped (like very small ones handled explicitly).
         # This ensures the JSON includes names for all labels present in assignments.
         for label in dataset['label'].unique():
             if label not in cluster_names_map:
-                 if label == -1:
-                      cluster_names_map[label] = "Miscellaneous" # Should be covered, but safety
-                 elif len(dataset[dataset['label'] == label]) < 2:
-                      cluster_names_map[label] = f"Cluster {label} (Small)"
-                 else:
-                      cluster_names_map[label] = f"Cluster {label} (Unnamed)" # Should not happen if default works
-
-        # Ensure cluster_names_map keys are strings for JSON output
-        cluster_names_map_str_keys = {str(k): v for k, v in cluster_names_map.items()}
+                if label == -1:
+                    cluster_names_map[label] = "Miscellaneous"
+                elif len(dataset[dataset['label'] == label]) < 2:
+                    cluster_names_map[label] = f"Cluster {label} (Small)"
+                else:
+                    cluster_names_map[label] = f"Cluster {label} (Unnamed)"
+                cluster_names_map_str_keys = {str(k): v for k, v in cluster_names_map.items()}
 
         # Combine into the final output structure
-        output_data = {
-            "cluster_assignments": cluster_assignments,
-            "cluster_names": cluster_names_map_str_keys
-        }
+        output_data = cluster_assignments_with_names
 
         print(f"Writing results to {output_json_path}")
         try:

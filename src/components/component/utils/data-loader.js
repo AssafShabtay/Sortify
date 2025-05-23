@@ -4,16 +4,13 @@ import { z } from "zod";
 import { appDataDir, join } from "@tauri-apps/api/path";
 import { exists, mkdir, readTextFile } from "@tauri-apps/plugin-fs";
 
+// 1. Define the expected schema for the JSON
 const fileSchema = z.object({
   path: z.string(),
-  label: z.number(),
+  cluster_name: z.number(),
 });
-const clusterNamesSchema = z.record(z.string(), z.string());
 
-const folderDataSchema = z.object({
-  cluster_assignments: z.array(fileSchema),
-  cluster_names: clusterNamesSchema,
-});
+const folderDataSchema = z.array(fileSchema);
 
 export async function fetchFolderData() {
   try {
@@ -21,120 +18,103 @@ export async function fetchFolderData() {
 
     if (!(await exists(appDataPath))) {
       await mkdir(appDataPath, { recursive: true });
+      console.log(`Created directory: ${appDataPath}`);
     }
 
     const filePath = await join(appDataPath, "Organization_Structure.json");
+    console.log(filePath);
 
+    // Use Tauri's fs API instead of fetch
     const fileContent = await readTextFile(filePath);
+
+    // Parse the JSON content
     const data = JSON.parse(fileContent);
 
+    // 3. Validate the data structure
     try {
-      folderDataSchema.parse(data);
+      folderDataSchema.parse(data); // Will throw an error if invalid
     } catch (err) {
-      console.error("Invalid data structure in JSON:", err);
-      throw new Error("Invalid data structure in JSON");
+      throw new Error("Invalid data structure in JSON", err);
     }
 
+    // 4. Sanitize the data before using it
     const sanitizedData = sanitizeData(data);
 
     return sanitizedData;
   } catch (error) {
     console.error("Error loading folder data:", error);
-    throw error; // Re-throw the error so callers can handle it
   }
 }
 
+// 5. Sanitize file paths and names (remove malicious content, unwanted characters, etc.)
 function sanitizeData(data) {
-  return {
-    cluster_assignments: data.cluster_assignments.map((item) => ({
-      ...item,
-      path: item.path.replace(/[<>"|?*]+/g, ""),
-      label: item.label,
-    })),
-    cluster_names: data.cluster_names,
-  };
+  return data.map((item) => ({
+    ...item,
+    path: item.path.replace(/[<>"|?*]+/g, ""), // Remove unsafe characters from the path
+    cluster_name: item.cluster_name, // Ensure label is safe (not requiring sanitization in this case)
+  }));
 }
 
 export function transformFolderData(data) {
-  if (!data || !data.cluster_assignments || !data.cluster_names) {
+  if (!data || !Array.isArray(data)) {
     throw new Error("Invalid folder data format");
   }
 
-  const clusterAssignments = data.cluster_assignments;
-  const clusterNames = data.cluster_names;
+  // Get unique labels to create folders
+  const uniqueLabels = [...new Set(data.map((item) => item.cluster_name))];
 
-  // Just count items per label first (more efficient than filter)
-  const labelCounts = {};
-  clusterAssignments.forEach((item) => {
-    const label = item.label;
-    labelCounts[label] = (labelCounts[label] || 0) + 1;
-  });
-
-  const uniqueLabels = Object.keys(labelCounts).map(Number);
-
-  // Create folders structure
-  const folders = uniqueLabels.map((label) => {
-    const labelStr = String(label);
+  // Create folders from unique labels
+  const folders = uniqueLabels.map((cluster_name) => {
+    const labelStr = String(cluster_name);
     const folderName =
-      clusterNames[labelStr] ||
-      (label === -1
+      cluster_name === -1
         ? "Unclustered"
-        : label === -2
+        : cluster_name === -2
         ? "Corrupt"
-        : `Cluster ${labelStr}`);
+        : `Cluster ${labelStr}`;
 
     return {
       id: labelStr,
       name: folderName,
-      itemCount: labelCounts[label],
+      itemCount: data.filter((item) => item.label === label).length,
       color: getFolderColor(labelStr),
     };
   });
 
-  // Initialize empty folderFiles structure
+  // Create files for each folder
   const folderFiles = {};
+
+  // Initialize empty arrays for each folder
   uniqueLabels.forEach((label) => {
     folderFiles[String(label)] = [];
   });
 
-  // Return the raw data too for lazy loading
-  return { folders, folderFiles, rawData: data };
-}
+  // Add files to their respective folders
+  data.forEach((item, index) => {
+    const labelStr = String(item.label);
+    const fileName = extractFileName(item.path);
+    const fileType = getFileTypeFromExtension(fileName);
 
-// Add this new function to load files only when needed:
-export function loadFolderFiles(data, folderId, limit = 100, offset = 0) {
-  if (!data || !data.cluster_assignments) return [];
+    const file = {
+      id: `file-${index}`,
+      name: fileName,
+      type: fileType,
+      folderId: labelStr,
+      path: item.path,
+    };
 
-  const labelNumber = Number(folderId);
+    folderFiles[labelStr].push(file);
+  });
 
-  // Only process files for the selected folder with pagination
-  return data.cluster_assignments
-    .filter((item) => item.label === labelNumber)
-    .slice(offset, offset + limit)
-    .map((item, index) => {
-      const fileName = extractFileName(item.path);
-      const fileType = getFileTypeFromExtension(fileName);
-
-      return {
-        id: `file-${folderId}-${offset + index}`,
-        name: fileName,
-        type: fileType,
-        folderId: String(item.label),
-        path: item.path,
-      };
-    });
+  return { folders, folderFiles };
 }
 
 function extractFileName(path) {
+  // Handle both forward and backward slashes
   const parts = path.split(/[/\\]/);
   return parts[parts.length - 1];
 }
 
-/**
- * Determine file type based on extension
- * @param fileName Filename with extension
- * @returns File type
- */
 function getFileTypeFromExtension(fileName) {
   const extension = fileName.split(".").pop()?.toLowerCase() || "";
 
@@ -215,42 +195,6 @@ function getFileTypeFromExtension(fileName) {
   return typeMap[extension] || "other";
 }
 
-/**
- * Generate a random file size string
- * @returns Random file size string
- */
-//function getRandomFileSize() {
-//  const size = Math.random() * 10 + 0.1; // Between 0.1 and 10.1
-//  return `${size.toFixed(1)} MB`;
-//}
-//
-///**
-// * Generate a random last modified string
-// * @returns Random last modified string
-// */
-//function getRandomLastModified(path) {
-//  //const desktopPath = await desktopDir();
-//  //const testFilePath = await join(desktopPath, "test.txt"); // Make sure test.txt exists
-//  // const metadata = await stat(testFilePath);
-//  //const metadata = await stat("C:/Users/shabt/Desktop/test.txt");
-//  const options = [
-//    "1 day ago",
-//    "2 days ago",
-//    "3 days ago",
-//    "1 week ago",
-//    "2 weeks ago",
-//    "Yesterday",
-//    "1 month ago",
-//  ];
-//
-//  return options[Math.floor(Math.random() * options.length)];
-//}
-
-/**
- * Assigns a color to a folder based on its ID
- * @param id Folder ID
- * @returns CSS color class
- */
 function getFolderColor(id) {
   const colors = [
     "text-blue-500",
