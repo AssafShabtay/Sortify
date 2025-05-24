@@ -195,7 +195,7 @@ export function useDragDropHandlers(
     toast({
       title: "Files moved",
       description: `${draggedFiles.length} file(s) moved to ${
-        getFolderById(targetFolderId)?.name
+        getFolderById(targetFolderId, folderData)?.name
       }`,
       duration: 3000,
     });
@@ -290,7 +290,7 @@ export async function saveChanges(
       files.forEach((file) => {
         result.push({
           path: file.path || `Unknown path for ${file.name}`,
-          label: Number.parseInt(folderId, 10),
+          cluster_name: file.name,
         });
       });
     });

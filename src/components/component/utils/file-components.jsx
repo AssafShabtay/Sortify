@@ -148,7 +148,6 @@ export function FileCard({
       textElement.style.overflow = "hidden";
       textElement.innerHTML = `
       <div style="font-weight: 500; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${file.name}</div>
-      <div style="font-size: 12px; color: #666;">${file.size}</div>
     `;
 
       // Append elements to preview

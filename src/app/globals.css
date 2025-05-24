@@ -374,13 +374,77 @@ body {
 }
 
 /* Performance optimizations */
-.file-card,
-.folder-card {
+.file-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
   will-change: transform;
+}
+
+.file-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.file-card:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Optimized selection styles */
+.file-selected {
+  background-color: rgba(var(--primary-blue), 0.15) !important;
+  border-color: rgb(var(--primary-blue)) !important;
+  outline: 2px solid rgba(var(--primary-blue), 0.5);
+  outline-offset: -2px;
+}
+
+/* Reduced drag animations */
+.file-dragging {
+  cursor: grabbing !important;
+}
+
+.file-dragging * {
+  cursor: grabbing !important;
+}
+
+.drag-target-active {
+  background-color: rgba(var(--primary-blue), 0.1) !important;
+  border-color: rgb(var(--primary-blue)) !important;
+  transform: scale(1.01);
+  transition: all 0.15s ease;
+}
+
+/* Optimized selection box */
+#optimized-selection-box {
+  border: 2px dashed rgb(var(--primary-blue));
+  background-color: rgba(var(--primary-blue), 0.1);
+  pointer-events: none;
+}
+
+/* Performance optimizations */
+.zoom-smooth {
+  transition: transform 0.2s ease;
+  transform-origin: top left;
+}
+
+/* Reduce animations on lower-end devices */
+@media (prefers-reduced-motion: reduce) {
+  .file-card,
+  .folder-card,
+  .drag-target-active,
+  .zoom-smooth {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* GPU acceleration for frequently animated elements */
+.file-card,
+.folder-card,
+.drag-target-active {
+  transform: translateZ(0);
   backface-visibility: hidden;
 }
 
-.file-card:not(:hover),
-.folder-card:not(:hover) {
+/* Only animate on hover/interaction, not constantly */
+.file-card:not(:hover):not(.file-selected) {
   will-change: auto;
 }

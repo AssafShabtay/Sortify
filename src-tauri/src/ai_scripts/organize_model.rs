@@ -48,8 +48,8 @@ fn count_recursive(path: &Path, extensions: &[&str]) -> i32 {
 #[tauri::command]
 pub async fn organize_files_from_json(
     base_output: String,
-    app: tauri::AppHandle,
     copy_or_move: String,
+    app: tauri::AppHandle,
 ) -> Result<(), String> {
     // Get json path in appdata
     let app_data_path = match app.path().app_data_dir() {
