@@ -243,13 +243,14 @@ export async function saveChanges(
   setIsSaving,
   baseOutput,
   toast,
-  copyOrMove
+  copyOrMove,
+  folderData // Add folderData parameter to get folder names
 ) {
   setIsSaving(true);
 
   const updateJsonFile = async () => {
     try {
-      const jsonData = convertToJsonFormat(folderFiles);
+      const jsonData = convertToJsonFormat(folderFiles, folderData);
       const appDataPath = await appDataDir();
 
       if (!(await exists(appDataPath))) {
@@ -261,12 +262,6 @@ export async function saveChanges(
       console.log(`Attempting to save to: ${filePath}`);
 
       await writeTextFile(filePath, JSON.stringify(jsonData, null, 2));
-
-      toast({
-        title: "Changes saved",
-        description: `Your changes have been saved to ${filePath}.`,
-        duration: 3000,
-      });
 
       setHasChanges(false);
       return true;
@@ -284,16 +279,42 @@ export async function saveChanges(
     }
   };
 
-  const convertToJsonFormat = (folderFiles) => {
+  const convertToJsonFormat = (folderFiles, folderData) => {
     const result = [];
+
+    // Debug logging
+    console.log("Converting to JSON format:");
+    console.log("folderData:", folderData);
+    console.log("folderFiles keys:", Object.keys(folderFiles));
+
+    // Create a mapping from folder ID to folder name
+    const folderIdToName = {};
+    if (Array.isArray(folderData)) {
+      folderData.forEach((folder) => {
+        folderIdToName[folder.id] = folder.name;
+        console.log(`Mapping folder ID ${folder.id} to name ${folder.name}`);
+      });
+    } else {
+      console.error("folderData is not an array:", folderData);
+    }
+
     Object.entries(folderFiles).forEach(([folderId, files]) => {
+      const clusterName = folderIdToName[folderId];
+
+      if (!clusterName) {
+        console.warn(`No cluster name found for folder ID: ${folderId}`);
+        console.warn("Available folder IDs:", Object.keys(folderIdToName));
+      }
+
       files.forEach((file) => {
         result.push({
           path: file.path || `Unknown path for ${file.name}`,
-          cluster_name: file.name,
+          cluster_name: clusterName || `Unknown Cluster (${folderId})`, // Provide a fallback
         });
       });
     });
+
+    console.log("Converted JSON data:", result);
     return result;
   };
 
@@ -302,6 +323,7 @@ export async function saveChanges(
     setIsSaving(false);
     return; // Stop execution if saving fails
   }
+
   try {
     await invoke("organize_files_from_json", {
       baseOutput: baseOutput,

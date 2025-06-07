@@ -25,24 +25,52 @@ import codecs
 import json
 import random
 from PIL import Image
-from transformers import BlipProcessor, BlipForConditionalGeneration
 from io import BytesIO
 import cairosvg
 import pytesseract
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from collections import Counter
-# Set all random seeds for deterministic behavior
+import string
+from sklearn.metrics.pairwise import cosine_similarity
+
+
 np.random.seed(42)
 random.seed(42)
 torch.manual_seed(42)
 torch.cuda.manual_seed_all(42)
 os.environ['PYTHONHASHSEED'] = '42'
-# Force deterministic behavior in PyTorch
+
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
-# Error collection system
+
+folder_path = sys.argv[1]
+output_json_path = sys.argv[2]
+toplevel_folders_as_one = sys.argv[3]
+
+error_output_path = Path(output_json_path).parent / "errors.json"
+unsupported_extensions_output_path = Path(output_json_path).parent / "unsupported_extensions.json"
+
 error_collection = {}
+
+nltk.download('stopwords')
+nltk.download('wordnet')
+
+translator = GoogleTranslator(source='auto', target='en')
+model = SentenceTransformer("sentence-transformers/all-mpnet-base-v2")
+
+unsupported_extensions = []
+
+num_cores = os.cpu_count()
+
+max_workers_suggestion = min(32, num_cores * 2 + 1)
+
+treat_toplevel_folders_as_one = True if toplevel_folders_as_one == "true" else False
+
+# make the prints be in utf-8
+if sys.platform == 'win32':
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
 def add_error(error_message, context=""):
     """
@@ -89,44 +117,6 @@ def print_error_summary():
             if len(error_data["contexts"]) > 3:
                 print(f"  - ... and {len(error_data['contexts']) - 3} more locations")
     print("======================\n")
-    
-def write_error_summary_txt():
-    """Write a summary of all collected errors to a text file"""
-    try:
-        with open(error_txt_path, "w", encoding="utf-8") as f:
-            f.write("=== ERROR SUMMARY ===\n")
-            f.write(f"Total unique errors: {len(error_collection)}\n\n")
-            
-            for error_key, error_data in error_collection.items():
-                f.write(f"{error_key}\n")
-                f.write(f"Occurred {error_data['count']} times\n")
-                if error_data["contexts"]:
-                    f.write("Sample contexts:\n")
-                    for i, context in enumerate(error_data["contexts"]):  # Show all contexts in text file
-                        f.write(f"  - {context}\n")
-                f.write("\n")
-                
-            f.write("======================\n")
-        print(f"Error summary written to {error_txt_path}")
-    except Exception as e:
-        print(f"Error writing to text file: {e}")
-
-num_cores = os.cpu_count()
-
-max_workers_suggestion = min(32, num_cores * 2 + 1)
-
-folder_path = "C:/Users/shabt/Desktop/Work/Datasets/Dataset By Type"
-output_json_path = "C:/Users/shabt/OneDrive/שולחן העבודה/מסמכים/output.json"
-error_output_path = "C:/Users/shabt/OneDrive/שולחן העבודה/מסמכים/errors.json"
-error_txt_path = "C:/Users/shabt/OneDrive/שולחן העבודה/מסמכים/errors.txt"
-toplevel_folders_as_one = "false"
-
-treat_toplevel_folders_as_one = True if toplevel_folders_as_one == "true" else False
-
-# make the prints be in utf-8
-if sys.platform == 'win32':
-    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
-    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
 #-------------------Texts--------------------------------------------------
 def extract_pdf_text(file_path):
@@ -253,12 +243,6 @@ def caption_image(image_path):
         add_error(e, f"Image captioning: {image_path}")
         return None
 
-nltk.download('stopwords')
-nltk.download('wordnet')
-
-translator = GoogleTranslator(source='auto', target='en')
-model = SentenceTransformer("sentence-transformers/all-mpnet-base-v2")
-
 def extract_file_summary(file_path):
     print(f"Processing file: {file_path}")
     start_time = time.time()
@@ -281,9 +265,7 @@ def extract_file_summary(file_path):
             print(f"Image caption: {text}")
             return text
         else:
-            error_msg = f"Unsupported extension: {extension}"
-            add_error(error_msg, f"File type detection: {file_path}")
-            print(error_msg)
+            unsupported_extensions.append(extension)
             return None
 
         if text:
@@ -397,9 +379,280 @@ def run_model_organizer(folder_path, dict_as_one, max_workers=4):
 
     return file_summaries
 
+#-------------------Improved Cluster Naming System--------------------------------------------------
+
+def extract_key_phrases(texts, max_phrases=5):
+    """Extract key phrases using n-grams and frequency analysis"""
+    
+    try:
+        vectorizer = CountVectorizer(
+            ngram_range=(2, 3),
+            max_features=100,
+            stop_words='english'
+        )
+        
+        all_text = " ".join(texts)
+
+        X = vectorizer.fit_transform([all_text])
+        
+        feature_names = vectorizer.get_feature_names_out()
+        counts = X.toarray()[0]
+        
+        phrase_counts = [(feature_names[i], counts[i]) for i in range(len(counts)) if counts[i] > 0]
+        phrase_counts.sort(key=lambda x: x[1], reverse=True)
+        
+        return [phrase for phrase, count in phrase_counts[:max_phrases]]
+    except Exception as e:
+        add_error(e, "Key phrase extraction")
+        return []
+
+def find_semantic_themes(cluster_df, embeddings, stop_words):
+    """Find semantic themes using embeddings and clustering within the cluster"""
+    try:
+        if len(cluster_df) < 3:
+            return []
+        
+        cluster_indices = cluster_df.index.tolist()
+        cluster_embeddings = embeddings[cluster_indices]
+        
+        if len(cluster_embeddings) > 20:
+            cluster_embeddings = cluster_embeddings[:20]
+            cluster_indices = cluster_indices[:20]
+        
+        centroid = np.mean(cluster_embeddings, axis=0)
+        
+        similarities = cosine_similarity([centroid], cluster_embeddings)[0]
+        top_indices = np.argsort(similarities)[-3:][::-1]
+        
+        representative_texts = cluster_df.iloc[top_indices]['texts'].tolist()
+        
+        important_terms = []
+        for text in representative_texts:
+            words = text.lower().split()
+            for word in words:
+                if (len(word) > 4 and 
+                    word not in stop_words and 
+                    word.isalpha()):
+                    important_terms.append(word)
+        
+        term_counts = Counter(important_terms)
+        return [term for term, count in term_counts.most_common(5)]
+        
+    except Exception as e:
+        add_error(e, "Semantic theme extraction")
+        return []
+    
+def analyze_file_extensions(cluster_df):
+    """Get file type from extension"""
+    try:
+        extensions = []
+        for path in cluster_df['path']:
+            ext = os.path.splitext(path)[1].lower()
+            if ext:
+                extensions.append(ext)
+        
+        if not extensions:
+            return None
+        
+        ext_counts = Counter(extensions)
+        most_common = ext_counts.most_common(3)
+        
+        ext_mapping = {
+            '.pdf': 'Documents',
+            '.docx': 'Documents',
+            '.doc': 'Documents',
+            '.txt': 'Text Files',
+            '.tex': 'LaTeX',
+            '.epub': 'E-books',
+            '.jpg': 'Images',
+            '.jpeg': 'Images',
+            '.png': 'Images',
+            '.svg': 'Vector Graphics'
+        }
+        
+        content_types = []
+        for ext, count in most_common:
+            if ext in ext_mapping:
+                content_types.append(ext_mapping[ext])
+        
+        if content_types:
+            return Counter(content_types).most_common(1)[0][0]
+        
+        return None
+        
+    except Exception as e:
+        add_error(e, "File extension analysis")
+        return None
+
+def extract_directory_patterns(cluster_df):
+    """Extract common directory patterns"""
+    try:
+        dirs = []
+        for path in cluster_df['path']:
+            dir_path = os.path.dirname(path)
+            if dir_path:
+                # Get last two directory components
+                parts = Path(dir_path).parts[-2:]
+                dirs.extend(parts)
+        
+        if not dirs:
+            return None
+        
+        # Find common directory names
+        dir_counts = Counter(dirs)
+        common_dirs = [d for d, count in dir_counts.most_common(3) 
+                      if count >= len(cluster_df) * 0.3]  # At least 30% of files
+        
+        if common_dirs:
+            # Clean
+            cleaned = [d.replace('_', ' ').replace('-', ' ').title() 
+                      for d in common_dirs[:2]]
+            return " - ".join(cleaned)
+        
+        return None
+        
+    except Exception as e:
+        add_error(e, "Directory pattern extraction")
+        return None
+
+def clean_cluster_name(name):
+    """Clean and format cluster name"""
+  
+    name = name.lstrip()
+    
+    unwanted_chars = '#%&{}\\<>*?/$!\'"":@+`|='
+    
+    for char in unwanted_chars:
+        name = name.replace(char, ' ')
+    
+    name = re.sub(r'[^\w\s\-().,]', ' ', name, flags=re.ASCII)
+    
+    name = ' '.join(name.split())
+    
+    words = name.split()
+    seen = set()
+    cleaned_words = []
+    for word in words:
+        word_lower = word.lower()
+        if word_lower not in seen:
+            seen.add(word_lower)
+            cleaned_words.append(word)
+    
+    name = ' '.join(cleaned_words)
+    
+    if len(name) > 60:
+        name = name[:57] + "..."
+    
+    name = string.capwords(name)
+    
+    return name
+
+def generate_descriptive_name(cluster_id, cluster_df, embeddings, stop_words):
+
+    name_candidates = []
+    
+    # Extractions ranked by priority, Higher number = Higher priority
+
+    dir_pattern = extract_directory_patterns(cluster_df)
+    if dir_pattern: 
+        name_candidates.append((3, dir_pattern))
+    
+
+    content_type = analyze_file_extensions(cluster_df)
+    if content_type:
+        name_candidates.append((1, content_type))
+    
+    themes = find_semantic_themes(cluster_df, embeddings, stop_words)
+    if themes:
+        theme_name = " ".join(themes[:3]).title()
+        name_candidates.append((2, theme_name))
+    
+    texts = cluster_df['cleaned_texts'].tolist()
+    key_phrases = extract_key_phrases(texts, max_phrases=3)
+    if key_phrases:
+        phrase_name = " - ".join(key_phrases[:2]).title()
+        name_candidates.append((2, phrase_name))
+    
+    try:
+        tfidf = TfidfVectorizer(
+            max_df=0.8,
+            min_df=2,
+            max_features=50,
+            ngram_range=(1, 2),
+            sublinear_tf=True
+        )
+        
+        tfidf_matrix = tfidf.fit_transform(texts)
+        
+        avg_scores = np.mean(tfidf_matrix.toarray(), axis=0)
+        top_indices = np.argsort(avg_scores)[-5:][::-1]
+        feature_names = tfidf.get_feature_names_out()
+        
+        tfidf_terms = [feature_names[i] for i in top_indices]
+        if tfidf_terms:
+            tfidf_name = " ".join(tfidf_terms[:3]).title()
+            name_candidates.append((1, tfidf_name))
+            
+    except Exception as e:
+        add_error(e, f"Advanced TF-IDF for cluster {cluster_id}")
+    
+
+    if name_candidates:
+        name_candidates.sort(key=lambda x: x[0], reverse=True)
+
+        best_name = name_candidates[0][1]
+        
+        if len(name_candidates) > 1 and name_candidates[1][0] >= 2:
+            secondary = name_candidates[1][1]
+            if secondary not in best_name:
+                best_name = f"{best_name} ({secondary})"
+
+        if content_type and content_type not in best_name:
+            best_name = f"{content_type}: {best_name}"
+        
+        best_name = clean_cluster_name(best_name)
+        
+        return best_name
+    
+    # Fallback to generic name
+    return f"Cluster {cluster_id}"
+
+def name_all_clusters(dataset, embeddings):
+    cluster_names = {}
+    used_names = set()
+    
+    cluster_names[-1] = "Uncategorized"
+    unique_clusters = sorted(dataset['label'].unique())
+    
+    for cluster_id in unique_clusters:
+        if cluster_id == -1:
+            continue
+            
+        cluster_df = dataset[dataset['label'] == cluster_id]
+        
+        if len(cluster_df) < 2:
+            cluster_names[cluster_id] = f"Small Group {cluster_id}"
+            continue
+        
+        base_name = generate_descriptive_name(cluster_id, cluster_df, embeddings, stop_words)
+        
+        # Handle duplicates
+        final_name = base_name
+        counter = 1
+        while final_name in used_names:
+            counter += 1
+            final_name = f"{base_name} ({counter})"
+        
+        used_names.add(final_name)
+        cluster_names[cluster_id] = final_name
+        
+        print(f"Cluster {cluster_id}: '{final_name}' ({len(cluster_df)} files)")
+    
+    return cluster_names
+
 try:
     file_summaries = run_model_organizer(folder_path, treat_toplevel_folders_as_one)
-
+    corrupt_files = []
     dataset = pd.DataFrame(
           [(path, data) for path, data in file_summaries.items()],
           columns=['path', 'texts']
@@ -425,10 +678,22 @@ try:
 
         return ' '.join(cleaned_lemmatized_words)
         
+    
+    
+    none_mask = dataset['texts'].isnull()
+    corrupt_files.extend(dataset[none_mask]['path'].tolist())
+
     dataset['cleaned_texts'] = dataset['texts'].apply(clean_text)
 
+    none_mask = dataset['cleaned_texts'].str.len() <= 3
+    corrupt_files.extend(dataset[none_mask]['path'].tolist())
+    
     dataset = dataset[dataset['cleaned_texts'].str.len() > 3]
     cleaned_texts = dataset['cleaned_texts'].tolist()
+
+    corrupt_files = list(set(corrupt_files))
+    del none_mask
+
     X = model.encode(cleaned_texts, convert_to_numpy=True)
     if len(X) < 6:
         error_msg = "Not enough files"
@@ -438,10 +703,7 @@ try:
         # Save error collection before exiting
         with open(error_output_path, "w", encoding="utf-8") as f:
             json.dump(error_collection, f, ensure_ascii=False, indent=2)
-            
-        # Write error summary to text file
-        write_error_summary_txt()
-            
+
         sys.exit(1)
 
     num_components = min(len(X) - 3, 15)
@@ -511,11 +773,9 @@ try:
 
         labels = best_clusterer.fit_predict(X_reduced)
 
-        # Assign labels to the DataFrame
         dataset['label'] = labels
         print("Cluster labels assigned to DataFrame.")
 
-        # Check if clustering resulted in only one cluster (excluding noise)
         unique_labels = sorted(dataset['label'].unique())
         n_clusters_found = len(unique_labels)
         if -1 in unique_labels:
@@ -527,236 +787,53 @@ try:
                 "cluster_assignments": [{"path": row['path'], "label": int(row['label'])} for index, row in dataset.iterrows()],
                 "cluster_names": {str(l): "No meaningful clusters found" for l in unique_labels}
             }
-            # If only -1 is found, the name is "Miscellaneous"
             if unique_labels == [-1]:
-                 output_data["cluster_names"] = {"-1": "Miscellaneous (No other clusters found)"}
+                 output_data["cluster_names"] = {"-1": "No clusters found"}
             elif len(unique_labels) == 1 and unique_labels[0] != -1:
-                 # Only one cluster found (not noise)
                  output_data["cluster_names"] = {str(unique_labels[0]): "Single Cluster Found"}
 
             with open(output_json_path, "w", encoding="utf-8") as f:
                 json.dump(output_data, f, ensure_ascii=False, indent=2)
-            
-            # Save error collection before exiting
             with open(error_output_path, "w", encoding="utf-8") as f:
                 json.dump(error_collection, f, ensure_ascii=False, indent=2)
             
-            # Write error summary to text file
-            write_error_summary_txt()
-                
-            print_error_summary()
             sys.exit(0)
 
         print(f"Clustering complete. Found {len(unique_labels)} clusters (including noise if present).")
 
-        #-------------------Cluster Naming Implementation --------------------------------------------------
+        #-------------------Use Improved Cluster Naming--------------------------------------------------
 
-        print("Starting cluster naming process...")
-
-        cluster_names_map = {}
-        named_clusters = set()
-
-        # Helper function to find common prefix/suffix/substring in filenames
-        def find_common_filename_pattern(filenames, threshold_percent=70, min_pattern_length=4):
-            if not filenames:
-                return None
-
-            num_files = len(filenames)
-            if num_files == 0: return None
-            threshold_count = int(num_files * threshold_percent / 100)
-            if threshold_count < 1: threshold_count = 1
-
-            best_pattern = None
-            best_pattern_len = 0
-
-            # Simple Prefix Check
-            if num_files > 1:
-                prefix = os.path.commonprefix(filenames)
-                if len(prefix) >= min_pattern_length and \
-                   sum(1 for fn in filenames if fn.startswith(prefix)) >= threshold_count:
-                    # Clean up trailing separators for naming
-                    cleaned_prefix = prefix.rstrip('_- .')
-                    if len(cleaned_prefix) >= min_pattern_length: # Ensure cleaned pattern is still long enough
-                         best_pattern = cleaned_prefix
-                         best_pattern_len = len(best_pattern)
-
-            # Simple Suffix Check (reversed strings) - Only if prefix wasn't strong or suffix is better
-            if num_files > 1:
-                reversed_filenames = [fn[::-1] for fn in filenames]
-                suffix_rev = os.path.commonprefix(reversed_filenames)
-                suffix = suffix_rev[::-1]
-                if len(suffix) >= min_pattern_length and \
-                   sum(1 for fn in filenames if fn.endswith(suffix)) >= threshold_count:
-                    # Clean up leading separators for naming
-                    cleaned_suffix = suffix.lstrip('_- .')
-                    if len(cleaned_suffix) >= min_pattern_length: # Ensure cleaned pattern is still long enough
-                        if len(cleaned_suffix) > best_pattern_len: # Prioritize longer patterns
-                            best_pattern = cleaned_suffix
-                            best_pattern_len = len(best_pattern)
-
-            return best_pattern
-
-        # Helper function to get top TF-IDF terms for a cluster
-        def get_top_tfidf_terms(cluster_id, dataset, tfidf_vectorizer, tfidf_matrix, n=5):
-            try:
-                cluster_df = dataset[dataset['label'] == cluster_id]
-                if len(cluster_df) == 0 or tfidf_matrix is None:
-                    return []
-
-                # Get the indices of the documents belonging to this cluster in the original TF-IDF matrix
-                # Need to map dataframe index to tfidf matrix index if filtering changed order
-                # A safer way: regenerate a small matrix just for this cluster using the global vectorizer
-                cluster_texts = cluster_df['cleaned_texts'].tolist()
-                if not cluster_texts: return []
-
-                # Use the fitted vectorizer to transform only the cluster's texts
-                cluster_tfidf_matrix = tfidf_vectorizer.transform(cluster_texts)
-                # Sum the TF-IDF scores for these documents
-                sum_tfidf_scores = np.asarray(cluster_tfidf_matrix.sum(axis=0)).flatten()
-
-                # Get the feature names (words)
-                feature_names = tfidf_vectorizer.get_feature_names_out()
-
-                # Get indices of top scoring terms
-                # Use np.argsort to get indices that would sort the array
-                top_indices = np.argsort(sum_tfidf_scores)[-n:][::-1] # Get last n indices and reverse
-
-                # Get the top terms, ensure scores are positive
-                top_terms = [feature_names[i] for i in top_indices if sum_tfidf_scores[i] > 0]
-
-                return top_terms
-            except Exception as e:
-                add_error(e, f"TF-IDF terms for cluster {cluster_id}")
-                return []
-
-        # Helper function to get top frequent terms for a cluster
-        def get_top_frequent_terms(cluster_id, dataset, n=5):
-            try:
-                cluster_df = dataset[dataset['label'] == cluster_id]
-                if len(cluster_df) == 0:
-                    return []
-
-                all_cluster_text = " ".join(cluster_df['cleaned_texts']).split()
-                if not all_cluster_text:
-                    return []
-
-                word_counts = Counter(all_cluster_text)
-                top_words = [word for word, count in word_counts.most_common(n)]
-
-                return top_words
-            except Exception as e:
-                add_error(e, f"Frequent terms for cluster {cluster_id}")
-                return []
-
-        # --- Naming Process ---
-
-        # 1. Handle the Noise Cluster (-1)
-        cluster_names_map[-1] = "Miscellaneous"
-        named_clusters.add(-1)
-
-        # 2. Prepare for TF-IDF (needs to be done once on all data)
-        print("Calculating TF-IDF scores for naming...")
-        tfidf_vectorizer = None
-        tfidf_matrix = None
-        try:
-            # Use min_df=2 to ignore words appearing in only one document across the corpus
-            # Use max_df=0.95 to ignore words appearing in more than 95% of documents (too common)
-            tfidf_vectorizer = TfidfVectorizer(max_df=0.95, min_df=2, max_features=10000)
-            tfidf_matrix = tfidf_vectorizer.fit_transform(dataset['cleaned_texts'])
-        except Exception as e:
-            add_error(e, "TF-IDF vectorization")
-            print(f"Error fitting TF-IDF vectorizer: {e}. TF-IDF naming will be skipped.")
-
-        # 3. Iterate and Apply Hierarchical Naming
-        print("Applying hierarchical naming strategy...")
-        # Use the unique labels from the DataFrame column
-        all_cluster_ids = sorted(dataset['label'].unique())
-
-        for cluster_id in all_cluster_ids:
-            if cluster_id in named_clusters:
-                continue # Already named (-1)
-
-            # Get data for the current cluster
-            cluster_df = dataset[dataset['label'] == cluster_id]
-            if len(cluster_df) < 2: # Don't try to name tiny clusters with complex methods
-                 cluster_names_map[cluster_id] = f"Cluster {cluster_id} (Small)"
-                 named_clusters.add(cluster_id)
-                 print(f"Named Cluster {cluster_id}: '{cluster_names_map[cluster_id]}' ({len(cluster_df)} files)")
-                 continue
-
-            print(f"Attempting to name Cluster {cluster_id} with {len(cluster_df)} files...")
-
-            # --- Level 1: Filename Patterns ---
-            filenames = cluster_df['filename'].tolist()
-            filename_pattern_name = find_common_filename_pattern(filenames)
-
-            if filename_pattern_name:
-                cluster_names_map[cluster_id] = filename_pattern_name.title()
-                named_clusters.add(cluster_id)
-                print(f"Named Cluster {cluster_id}: '{cluster_names_map[cluster_id]}' (Filename Pattern)")
-                continue # Move to the next cluster
-
-            # --- Level 2: TF-IDF Keywords ---
-            if tfidf_vectorizer and tfidf_matrix is not None:
-                tfidf_terms = get_top_tfidf_terms(cluster_id, dataset, tfidf_vectorizer, tfidf_matrix, n=5)
-                if tfidf_terms:
-                    # Join terms, maybe limit total name length
-                    name = " ".join(tfidf_terms).title()
-                    cluster_names_map[cluster_id] = name[:100] # Limit name length
-                    named_clusters.add(cluster_id)
-                    print(f"Named Cluster {cluster_id}: '{cluster_names_map[cluster_id]}' (TF-IDF)")
-                    continue
-
-            # --- Level 3: Most Frequent Terms ---
-            frequent_terms = get_top_frequent_terms(cluster_id, dataset, n=5)
-            if frequent_terms:
-                # Join terms, maybe limit total name length
-                name = " ".join(frequent_terms).title()
-                cluster_names_map[cluster_id] = name[:100] # Limit name length
-                named_clusters.add(cluster_id)
-                print(f"Named Cluster {cluster_id}: '{cluster_names_map[cluster_id]}' (Frequency)")
-                continue
-
-            # --- Level 6: Default Name ---
-            # If reached here, none of the automated methods worked
-            cluster_names_map[cluster_id] = f"Cluster {cluster_id}"
-            named_clusters.add(cluster_id)
-            print(f"Named Cluster {cluster_id}: '{cluster_names_map[cluster_id]}' (Default)")
-
+        print("Starting improved cluster naming process...")
+    
+        # Generate names for all clusters
+        cluster_names_map = name_all_clusters(dataset, X)
+        
         print("Cluster naming complete.")
 
-        #-------------------Output JSON (Modified Structure) --------------------------------------------------
+        #-------------------Output JSON -------------------------------------------------- 
 
-        # Create the list of file assignments
-        cluster_assignments_with_names = [
-        {
-            "path": row['path'], 
-            "cluster_name": cluster_names_map[row['label']]
-        }
-        for index, row in dataset.iterrows()
+        unique_unsupported_extensions = list(set(unsupported_extensions))
+        
+        with open(unsupported_extensions_output_path, "w", encoding="utf-8") as f:
+            json.dump(unsupported_extensions, f, ensure_ascii=False, indent=2)
+
+        cluster_assignments = [
+            {
+                "path": row['path'], 
+                "cluster_name": cluster_names_map[row['label']]
+            }
+            for index, row in dataset.iterrows()
         ]
 
-
-        # Ensure all unique labels from the dataset are in the cluster_names_map,
-        # even if some were skipped (like very small ones handled explicitly).
-        # This ensures the JSON includes names for all labels present in assignments.
-        label_number = 1
-        for label in dataset['label'].unique():
-            if label not in cluster_names_map:
-                if label == -1:
-                    cluster_names_map[label] = "Miscellaneous"
-                if label == -2:
-                    cluster_names_map[label] = "corrupt"
-                elif len(dataset[dataset['label'] == label]) < 2:
-                    cluster_names_map[label] = f"Manual naming is required({label_number})"
-                else:
-                    cluster_names_map[label] = f"Manual naming is required({label_number})"
-                cluster_names_map_str_keys = {str(k): v for k, v in cluster_names_map.items()}
+        for path in corrupt_files:
+            cluster_assignments.append({
+                "path": path,
+                "cluster_name": "Corrupt"
+            })
 
         # Combine into the final output structure
-        output_data = cluster_assignments_with_names
+        output_data = cluster_assignments
 
-        print(f"Writing results to {output_json_path}")
         try:
             with open(output_json_path, "w", encoding="utf-8") as f:
                 json.dump(output_data, f, ensure_ascii=False, indent=2)
@@ -773,7 +850,6 @@ except Exception as e:
     add_error(e, "Main execution")
     print(f"Error in main execution: {e}")
 
-# Write error collection to file
 print(f"Writing error summary to {error_output_path}")
 try:
     with open(error_output_path, "w", encoding="utf-8") as f:
@@ -781,11 +857,6 @@ try:
 except Exception as e:
     print(f"Error writing error collection to JSON file: {e}")
 
-# Write error summary to text file
-write_error_summary_txt()
-
-# Print the error summary
-#print_error_summary()
-
 print("Processing complete. JSON output generated.")
+#print_error_summary()
 sys.exit(0)

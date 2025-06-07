@@ -63,6 +63,9 @@ export default function FolderBrowserDialog({
   const [selectionBox, setSelectionBox] = useState(null); // { startX, startY, currentX, currentY, folderId }
   const [currentFolderId, setCurrentFolderId] = useState(null); // Currently active/focused folder
 
+  const [savingProgress, setSavingProgress] = useState(0);
+  const [savingMessage, setSavingMessage] = useState("");
+
   const [selectedFolderIds, setSelectedFolderIds] = useState([]);
   const [folderWidths, setFolderWidths] = useState({});
   const [folderZoom, setFolderZoom] = useState({});
@@ -472,14 +475,15 @@ export default function FolderBrowserDialog({
   };
 
   // Handle saving changes with the updated base output path
-  const handleSaveChanges = (copyOrMove) => {
-    saveChanges(
+  const handleSaveChanges = async (copyOrMove) => {
+    await saveChanges(
       folderFiles,
       setHasChanges,
       setIsSaving,
       currentBaseOutput, // Use the updated base output
       toast,
-      copyOrMove
+      copyOrMove,
+      folderData
     );
 
     // Close the dialog after saving
@@ -1608,20 +1612,75 @@ export default function FolderBrowserDialog({
     }`;
   };
 
+  const LoadingOverlay = ({ isVisible, message, progress }) => {
+    if (!isVisible) return null;
+
+    return (
+      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="bg-card p-6 rounded-lg shadow-lg border max-w-sm w-full mx-4">
+          <div className="flex flex-col items-center space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="text-center">
+              <h3 className="font-semibold text-lg">
+                {message || "Saving Changes"}
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Please wait while we process your changes...
+              </p>
+            </div>
+            {progress > 0 && (
+              <div className="w-full bg-secondary rounded-full h-2">
+                <div
+                  className="bg-primary h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ADD this useEffect to auto-close dialog after successful save:
+  useEffect(() => {
+    if (!isSaving && !hasChanges && savingProgress === 100) {
+      const timer = setTimeout(() => {
+        onOpenChange(false);
+        setSavingProgress(0);
+        setSavingMessage("");
+      }, 1500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isSaving, hasChanges, savingProgress, onOpenChange]);
+
   return (
     <Dialog
       open={isOpen}
       onOpenChange={(newOpen) => {
-        // Reset cursor when dialog closes
+        // Prevent closing dialog while saving
+        if (isSaving && newOpen === false) {
+          toast({
+            title: "Please wait",
+            description: "Cannot close while saving changes.",
+            variant: "destructive",
+          });
+          return;
+        }
+
         if (!newOpen) {
           document.body.style.cursor = "";
           document.body.classList.remove("file-dragging");
+          // Reset saving state when dialog closes
+          setSavingProgress(0);
+          setSavingMessage("");
         }
         onOpenChange(newOpen);
       }}
     >
       <DialogContent
-        className="w-[95vw] sm:w-[90vw] md:w-[85vw] lg:w-[80vw] max-w-none p-4 sm:p-6 h-[90vh] max-h-[90vh] flex flex-col"
+        className="w-[95vw] sm:w-[90vw] md:w-[85vw] lg:w-[80vw] max-w-none p-4 sm:p-6 h-[90vh] max-h-[90vh] flex flex-col "
         ref={dialogRef}
         style={{ height: "90vh" }}
       >
@@ -2198,6 +2257,11 @@ export default function FolderBrowserDialog({
             )}
           </div>
         </div>
+        <LoadingOverlay
+          isVisible={isSaving}
+          message={savingMessage}
+          progress={savingProgress}
+        />
       </DialogContent>
     </Dialog>
   );

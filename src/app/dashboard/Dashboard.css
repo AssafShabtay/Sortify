@@ -18,13 +18,16 @@ h1 {
   justify-content: center;
 }
 
+/* Consider removing or making this more flexible if not directly used or conflicting with Tailwind Cards */
 .card {
   background-color: #f9f9f9;
   border: 1px solid #ddd;
   border-radius: 0.625rem;
   padding: 1.25rem;
   margin: 0.625rem;
-  width: 12.5rem;
+  /* width: 12.5rem;  <-- REMOVE OR ADJUST THIS IF IT'S CAUSING ISSUES */
+  width: 100%; /* Example: Make it full width by default, or use max-width */
+  max-width: 12.5rem; /* If you still want a max size on larger screens */
 }
 
 .card-header {

@@ -27,7 +27,6 @@ import {
 import { Button } from "@/components/ui/button";
 import FolderBrowserDialog from "@/components/component/folder-browser-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { listen } from "@tauri-apps/api/event";
 import {
   Card,
   CardContent,
@@ -77,7 +76,7 @@ export default function Dashboard() {
     window.addEventListener("resize", handleResize);
     handleResize(); // Initial call
 
-    return () => window.removeEventListener("resize", handleResize);
+    return () => window.removeEventListener(handleResize);
   }, []);
 
   // Animation sequence on initial load
@@ -293,7 +292,6 @@ export default function Dashboard() {
   };
 
   async function StartOrganizerModel(folderPath) {
-    let unlistenFn;
     try {
       setIsOrganizing(true); // Set loading state to true before starting
       setLoadingProgress(0); // Initialize progress at the beginning
@@ -306,32 +304,11 @@ export default function Dashboard() {
         });
         return;
       }
-      unlistenFn = await listen("organization_progress", (event) => {
-        // Update progress based on event data
-        switch (event.payload) {
-          case "Not enough files":
-            setIsOrganizing(false);
-            toast({
-              title: "Error",
-              description: `Not enough files in folder`,
-              variant: "destructive",
-            });
-            return;
-          case "Completed":
-            setLoadingProgress(90);
-            break;
-          default:
-            // Handle any other progress messages
-            console.log(`Received progress update: ${event.payload}`);
-        }
-      });
       // Wait for the invoke to complete using await
       await invoke("run_organize_model", {
         folderPath: folderPath,
         treatToplevelFoldersAsOne: organizeState.TreatToplevelFoldersAsOne,
       });
-
-      console.log("Completed");
 
       // Only proceed after the invoke is fully complete
       setLoadingProgress(100);
@@ -351,10 +328,6 @@ export default function Dashboard() {
         variant: "destructive",
       });
     } finally {
-      // Short delay before removing loading screen for better UX
-      if (unlistenFn) {
-        unlistenFn();
-      }
       setTimeout(() => {
         setIsOrganizing(false);
       }, 1000);
@@ -362,7 +335,14 @@ export default function Dashboard() {
   }
 
   // Function to render the option row with icon - enhanced with animation
-  const renderOptionRow = (label, checked, onChange, icon, tooltip = null) => {
+  const renderOptionRow = (
+    label,
+    checked,
+    onChange,
+    icon,
+    isDisabled = false,
+    tooltip = null
+  ) => {
     return (
       <div
         className={`flex items-center justify-between py-2 hover:bg-[#94B4C1]/20 rounded px-2 transition-all duration-300 
@@ -399,6 +379,7 @@ export default function Dashboard() {
             }
             onChange(value);
           }}
+          disabled={isDisabled}
           className="transition-transform duration-200 hover:scale-100 focus:ring-2 focus:ring-[#94B4C1]"
         />
       </div>
@@ -438,7 +419,6 @@ export default function Dashboard() {
               </Badge>
             </div>
           </div>
-
           {/* Stats Cards - with animation */}
           <Card
             ref={statsCardRef}
@@ -520,7 +500,6 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
-
           {/* Main Card */}
           <Card
             className={`border-[#94B4C1]/40 shadow-sm overflow-hidden transition-all duration-500 ease-in-out
@@ -738,58 +717,64 @@ export default function Dashboard() {
                             value
                           ),
                         <BiCategoryAlt className="text-[#547792] h-5 w-5" />,
+                        false,
                         "Group all top level folders"
                       )}
 
                       {renderOptionRow(
-                        "Remove duplicates",
+                        "Remove duplicates - Unavailable",
                         organizeState.removeDuplicates,
                         (value) =>
                           handleOrganizeStateChange("removeDuplicates", value),
-                        <HiOutlineDuplicate className="text-[#547792] h-5 w-5" />
+                        <HiOutlineDuplicate className="text-[#547792] h-5 w-5" />,
+                        true
                       )}
 
                       {renderOptionRow(
-                        "Back up before organizing",
+                        "Back up before organizing - Unavailable",
                         organizeState.isOrganizeEnabledBackUp,
                         (value) =>
                           handleOrganizeStateChange(
                             "isOrganizeEnabledBackUp",
                             value
                           ),
-                        <FiAlertTriangle className="text-[#547792] h-5 w-5" />
+                        <FiAlertTriangle className="text-[#547792] h-5 w-5" />,
+                        true
                       )}
                     </div>
 
                     <div className="bg-[#94B4C1]/10 p-4 rounded-lg border border-[#94B4C1]/30 transition-all duration-300 hover:border-[#547792]/40">
                       {renderOptionRow(
-                        "Auto-rename files",
+                        "Auto-rename files - Unavailable",
                         organizeState.autoRenameFiles,
                         (value) =>
                           handleOrganizeStateChange("autoRenameFiles", value),
-                        <FiSettings className="text-green-600 h-5 w-5" />
+                        <FiSettings className="text-green-600 h-5 w-5" />,
+                        true
                       )}
 
                       {renderOptionRow(
-                        "Archive old files",
+                        "Archive old files - Unavailable",
                         organizeState.autoArchiveOldFiles,
                         (value) =>
                           handleOrganizeStateChange(
                             "autoArchiveOldFiles",
                             value
                           ),
-                        <FiArchive className="text-[#547792] h-5 w-5" />
+                        <FiArchive className="text-[#547792] h-5 w-5" />,
+                        true
                       )}
 
                       {renderOptionRow(
-                        "Manual review",
+                        "Manual review - Unavailable",
                         organizeState.manualReviewNotifications,
                         (value) =>
                           handleOrganizeStateChange(
                             "manualReviewNotifications",
                             value
                           ),
-                        <FiEye className="text-[#547792] h-5 w-5" />
+                        <FiEye className="text-[#547792] h-5 w-5" />,
+                        true
                       )}
                     </div>
                   </div>
@@ -880,6 +865,7 @@ export default function Dashboard() {
           >
             <FiFolder className="mr-1" /> Browse
           </Button>
+          ;
         </div>
         <FolderBrowserDialog
           isOpen={isDialogBrowserOpen}
@@ -893,7 +879,7 @@ export default function Dashboard() {
         />
         {/* Enhanced Loading Overlay */}
         {isOrganizing && (
-          <div className="fixed inset-0 bg-[#213448]/90 backdrop-blur-md flex items-center justify-center z-50 transition-all duration-500 animate-fadeIn">
+          <div className="fixed top-[60px] left-0 right-0 bottom-0 bg-[#213448]/90 backdrop-blur-md flex items-center justify-center z-40 transition-all duration-500 animate-fadeIn">
             {/* Changed pb-4 to pb-6 to increase bottom padding */}
             <div
               className="bg-white px-6 pt-2 pb-6 rounded-xl shadow-lg flex flex-col items-center max-w-md w-full mx-4 border border-[#94B4C1]/40 animate-scaleIn" // <-- pb-4 changed to pb-6

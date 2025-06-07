@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -13,7 +13,7 @@ use std::ffi::OsStr;
 #[derive(Debug, Deserialize)]
 struct FileLabel {
     path: String,
-    label: i32,
+    cluster_name: String//change
 }
 
 #[tauri::command]
@@ -31,10 +31,8 @@ fn count_recursive(path: &Path, extensions: &[&str]) -> i32 {
             let entry_path = entry.path();
             
             if entry_path.is_dir() {
-                // Direct path reference, no string conversion
                 count += count_recursive(&entry_path, extensions);
             } else if let Some(extension) = entry_path.extension().and_then(OsStr::to_str) {
-                // More efficient extension checking
                 if extensions.contains(&extension) {
                     count += 1;
                 }
@@ -46,58 +44,115 @@ fn count_recursive(path: &Path, extensions: &[&str]) -> i32 {
 }
 
 #[tauri::command]
-pub async fn organize_files_from_json(
-    base_output: String,
-    copy_or_move: String,
-    app: tauri::AppHandle,
-) -> Result<(), String> {
+pub async fn organize_files_from_json(base_output: String, copy_or_move: String, app: tauri::AppHandle) -> Result<(), String> {
+    let base_output_path = Path::new(&base_output);
+
     // Get json path in appdata
-    let app_data_path = match app.path().app_data_dir() {
-        Ok(path) => path.to_string_lossy().to_string(),
-        Err(err) => {
-            eprintln!("Failed to get app data directory: {:?}", err);
-            return Err(format!("Failed to get app data directory: {:?}", err));
-        }
-    };
-    let json_file_path_buf = Path::new(&app_data_path).join("Organization_Structure.json");
-    let json_path = json_file_path_buf.to_string_lossy().to_string();
+    let app_data_path = app
+        .path()
+        .app_data_dir()
+        .map_err(|err| format!("Failed to get app data directory: {:?}", err))?;
+    
+    let json_file_path = app_data_path.join("Organization_Structure.json");
 
-    // Read json data
-    let data = match fs::read_to_string(json_path) {
-        Ok(content) => content,
-        Err(e) => return Err(e.to_string()),
-    };
 
-    let items: Vec<FileLabel> = match serde_json::from_str(&data) {
-        Ok(parsed) => parsed,
-        Err(e) => return Err(e.to_string()),
-    };
-
-    // Copy/Move the files to the designated
-    for item in items {
-        let label_folder = format!("{}/label_{}", base_output, item.label);
-        if let Err(e) = fs::create_dir_all(&label_folder) {
-            return Err(e.to_string());
-        }
-        let src = Path::new(&item.path);
-        let filename = match src.file_name() {
-            Some(name) => name,
-            None => return Err(format!("Invalid filename in path: {}", item.path)),
-        };
-        let dest = Path::new(&label_folder).join(filename);
-        if copy_or_move.as_str() == "move" {
-            if let Err(e) = fs::rename(&src, &dest) {
-                return Err(e.to_string());
-            }
-        }
-        if copy_or_move.as_str() == "copy" {
-            if let Err(e) = fs::copy(&src, &dest) {
-                return Err(e.to_string());
-            }
-        }
+    if !json_file_path.exists() {
+        return Err("Organization_Structure.json not found in app data directory".to_string());
     }
+
+    let data = fs::read_to_string(&json_file_path)
+        .map_err(|e| format!("Failed to read JSON file: {}", e))?;
+
+    let items: Vec<FileLabel> = serde_json::from_str(&data)
+        .map_err(|e| format!("Failed to parse JSON: {}", e))?;
+
+    if !base_output_path.exists() {
+        fs::create_dir_all(base_output_path)
+            .map_err(|e| format!("Failed to create base output directory: {}", e))?;
+    }
+
+    for item in items {
+        let sanitized_cluster_name = sanitize_filename(&item.cluster_name)?;
+        
+        let cluster_folder = base_output_path.join(&sanitized_cluster_name);
+        
+        if !cluster_folder.exists() {
+            fs::create_dir_all(&cluster_folder)
+                .map_err(|e| format!("Failed to create directory '{}': {}", cluster_folder.display(), e))?;
+        }
+
+        let src_path = Path::new(&item.path);
+        
+        if !src_path.exists() {
+            eprintln!("Warning: Source file does not exist: {}", src_path.display());
+            continue; 
+        }
+        let filename = src_path
+            .file_name()
+            .ok_or_else(|| format!("Invalid filename in path: {}", item.path))?;
+        
+        let dest_path = cluster_folder.join(filename);
+
+        if dest_path.exists() {
+            let dest_backup = generate_unique_filename(&dest_path);
+            eprintln!("Warning: Destination file exists, using: {}", dest_backup.display());
+            perform_file_operation(&copy_or_move, src_path, &dest_backup)?;
+        } else {
+            perform_file_operation(&copy_or_move, src_path, &dest_path)?;
+        }
+
+        println!("Processed: {} -> {}", src_path.display(), dest_path.display());
+    }
+
     Ok(())
 }
+
+fn sanitize_filename(name: &str) -> Result<String, String> {
+    let sanitized = name
+        .replace("..", "_")
+        .replace(['/', '\\'], "_")
+        .replace(['<', '>', ':', '"', '|', '?', '*'], "_");
+    
+    if sanitized.is_empty() {
+        return Err("Cluster name cannot be empty after sanitization".to_string());
+    }
+    Ok(sanitized)
+}
+
+fn generate_unique_filename(original: &Path) -> PathBuf {
+    let parent = original.parent().unwrap_or(Path::new("."));
+    let stem = original.file_stem().unwrap_or_default();
+    let extension = original.extension();
+    
+    for i in 1..1000 {
+        let new_name = if let Some(ext) = extension {
+            format!("{}_{}.{}", stem.to_string_lossy(), i, ext.to_string_lossy())
+        } else {
+            format!("{}_{}", stem.to_string_lossy(), i)
+        };
+        
+        let new_path = parent.join(new_name);
+        if !new_path.exists() {
+            return new_path;
+        }
+    }
+
+    original.to_path_buf()
+}
+
+fn perform_file_operation(operation: &str, src: &Path, dest: &Path) -> Result<(), String> {
+    match operation {
+        "move" => fs::rename(src, dest)
+            .map_err(|e| format!("Failed to move '{}' to '{}': {}", src.display(), dest.display(), e)),
+        "copy" => {
+            fs::copy(src, dest)
+                .map_err(|e| format!("Failed to copy '{}' to '{}': {}", src.display(), dest.display(), e))?;
+            Ok(())
+        }
+        _ => unreachable!("operation already validated"),
+    }
+}
+
 #[tauri::command]
 pub async fn run_organize_model(
     folder_path: String,
@@ -110,7 +165,7 @@ pub async fn run_organize_model(
         if child_process.is_some() {
             // A sidecar is already running, do not spawn a new one
             println!("[tauri] Sidecar is already running. Skipping spawn.");
-            return Ok(()); // Return Ok instead of early exit
+            return Ok(()); 
         }
     }
 
