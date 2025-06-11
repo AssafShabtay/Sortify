@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -61,37 +61,6 @@ export default function Dashboard() {
   const headerRef = useRef(null);
   const statsCardRef = useRef(null);
 
-  // Update screen size for responsive design
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 640) {
-        setScreenSize("sm");
-      } else if (window.innerWidth < 1024) {
-        setScreenSize("md");
-      } else {
-        setScreenSize("lg");
-      }
-    };
-
-    window.addEventListener("resize", handleResize);
-    handleResize(); // Initial call
-
-    return () => window.removeEventListener(handleResize);
-  }, []);
-
-  // Animation sequence on initial load
-  useEffect(() => {
-    // Animate card entry on first render
-    setAnimateCard(true);
-
-    // Animate options after card is shown
-    const timer = setTimeout(() => {
-      setAnimateOptions(true);
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, []);
-
   const [organizeState, setOrganizeState] = useState({
     selectedFolder: "",
     useTargetAsOutput: true,
@@ -116,6 +85,37 @@ export default function Dashboard() {
     "Almost there...",
     "Finalizing organization...",
   ];
+
+  // Update screen size for responsive design
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 640) {
+        setScreenSize("sm");
+      } else if (window.innerWidth < 1024) {
+        setScreenSize("md");
+      } else {
+        setScreenSize("lg");
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    handleResize(); // Initial call
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Animation sequence on initial load
+  useEffect(() => {
+    // Animate card entry on first render
+    setAnimateCard(true);
+
+    // Animate options after card is shown
+    const timer = setTimeout(() => {
+      setAnimateOptions(true);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // Set up loading message rotation when organizing is active
   useEffect(() => {
@@ -172,10 +172,10 @@ export default function Dashboard() {
 
     // Clean up intervals when component unmounts or organizing stops
     return () => {
-      clearInterval(messageInterval);
-      clearInterval(progressInterval);
+      if (messageInterval) clearInterval(messageInterval);
+      if (progressInterval) clearInterval(progressInterval);
     };
-  }, [isOrganizing, fileCount]);
+  }, [isOrganizing, fileCount, loadingMessages]);
 
   // Separate useEffect to handle the completion animation
   useEffect(() => {
@@ -223,23 +223,23 @@ export default function Dashboard() {
     }
   }, [fileCount]);
 
-  const handleSelectFolder = async () => {
-    const folderPath = await open({
-      directory: true,
-      title: "Select Target Folder",
-      multiple: false,
-    });
-    if (folderPath) {
-      // Instead of hiding the cards, show a counting indicator
-      setIsCounting(true); // <-- NEW STATE USED INSTEAD
+  const handleSelectFolder = useCallback(async () => {
+    try {
+      const folderPath = await open({
+        directory: true,
+        title: "Select Target Folder",
+        multiple: false,
+      });
 
-      setOrganizeState((prevState) => ({
-        ...prevState,
-        selectedFolder: folderPath,
-      }));
+      if (folderPath) {
+        // Instead of hiding the cards, show a counting indicator
+        setIsCounting(true);
 
-      try {
-        // Simulate loading
+        setOrganizeState((prevState) => ({
+          ...prevState,
+          selectedFolder: folderPath,
+        }));
+
         toast({
           title: "Scanning folder",
           description: "Counting files...",
@@ -249,6 +249,7 @@ export default function Dashboard() {
           folderPath: folderPath,
           treatToplevelFoldersAsOne: organizeState.TreatToplevelFoldersAsOne,
         });
+
         console.log("count: ", count);
         setFileCount(count);
 
@@ -258,133 +259,144 @@ export default function Dashboard() {
           description: `Found ${count} files`,
           variant: "success",
         });
-      } catch (error) {
-        console.error("Error getting file count:", error);
-        setFileCount(100);
-
-        toast({
-          title: "Error scanning folder",
-          description: "Using estimated file count",
-          variant: "destructive",
-        });
-      } finally {
-        // Always stop the counting indicator when done
-        setIsCounting(false); // <-- ENSURES STATE IS RESET
       }
-    }
-  };
+    } catch (error) {
+      console.error("Error getting file count:", error);
+      setFileCount(100);
 
-  const handleOrganizeStateChange = (key, value) => {
+      toast({
+        title: "Error scanning folder",
+        description: "Using estimated file count",
+        variant: "destructive",
+      });
+    } finally {
+      // Always stop the counting indicator when done
+      setIsCounting(false);
+    }
+  }, [organizeState.TreatToplevelFoldersAsOne, toast]);
+
+  const handleOrganizeStateChange = useCallback((key, value) => {
     setOrganizeState((prevState) => ({
       ...prevState,
       [key]: value,
     }));
-  };
+  }, []);
 
-  const handleSelectOutputFolder = async () => {
-    const folderPath = await open({ directory: true });
-    if (folderPath) {
-      setOrganizeState((prevState) => ({
-        ...prevState,
-        outputFolder: folderPath,
-      }));
-    }
-  };
-
-  async function StartOrganizerModel(folderPath) {
+  const handleSelectOutputFolder = useCallback(async () => {
     try {
-      setIsOrganizing(true); // Set loading state to true before starting
-      setLoadingProgress(0); // Initialize progress at the beginning
-
-      if (fileCount < 6) {
-        toast({
-          title: "Error",
-          description: `Not enough files in folder`,
-          variant: "destructive",
-        });
-        return;
+      const folderPath = await open({ directory: true });
+      if (folderPath) {
+        setOrganizeState((prevState) => ({
+          ...prevState,
+          outputFolder: folderPath,
+        }));
       }
-      // Wait for the invoke to complete using await
-      await invoke("run_organize_model", {
-        folderPath: folderPath,
-        treatToplevelFoldersAsOne: organizeState.TreatToplevelFoldersAsOne,
-      });
-
-      // Only proceed after the invoke is fully complete
-      setLoadingProgress(100);
-
-      toast({
-        title: "Success",
-        description: "Files organized successfully!",
-        variant: "success",
-      });
-
-      // Only now open the dialog browser
-      setIsDialogBrowserOpen(true);
     } catch (error) {
+      console.error("Error selecting output folder:", error);
       toast({
         title: "Error",
-        description: `Failed to organize files: ${error.message || error}`,
+        description: "Failed to select output folder",
         variant: "destructive",
       });
-    } finally {
-      setTimeout(() => {
-        setIsOrganizing(false);
-      }, 1000);
     }
-  }
+  }, [toast]);
+
+  const StartOrganizerModel = useCallback(
+    async (folderPath) => {
+      try {
+        setIsOrganizing(true); // Set loading state to true before starting
+        setLoadingProgress(0); // Initialize progress at the beginning
+
+        if (fileCount < 6) {
+          toast({
+            title: "Error",
+            description: `Not enough files in folder`,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Wait for the invoke to complete using await
+        await invoke("run_organize_model", {
+          folderPath: folderPath,
+          treatToplevelFoldersAsOne: organizeState.TreatToplevelFoldersAsOne,
+        });
+
+        // Only proceed after the invoke is fully complete
+        setLoadingProgress(100);
+
+        toast({
+          title: "Success",
+          description: "Files organized successfully!",
+          variant: "success",
+        });
+
+        // Only now open the dialog browser
+        setIsDialogBrowserOpen(true);
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: `Failed to organize files: ${error.message || error}`,
+          variant: "destructive",
+        });
+      } finally {
+        setTimeout(() => {
+          setIsOrganizing(false);
+        }, 1000);
+      }
+    },
+    [fileCount, organizeState.TreatToplevelFoldersAsOne, toast]
+  );
 
   // Function to render the option row with icon - enhanced with animation
-  const renderOptionRow = (
-    label,
-    checked,
-    onChange,
-    icon,
-    isDisabled = false,
-    tooltip = null
-  ) => {
-    return (
-      <div
-        className={`flex items-center justify-between py-2 hover:bg-[#94B4C1]/20 rounded px-2 transition-all duration-300 
+  const renderOptionRow = useCallback(
+    (label, checked, onChange, icon, isDisabled = false, tooltip = null) => {
+      return (
+        <div
+          className={`flex items-center justify-between py-2 hover:bg-theme-secondary-20 rounded px-2 transition-all duration-300 
           ${
             animateOptions
               ? "opacity-100 translate-x-0"
               : "opacity-0 -translate-x-4"
           }`}
-      >
-        <div className="flex items-center space-x-2">
-          {icon}
-          <div className="flex items-center">
-            <Label className="font-medium text-gray-700 text-sm">{label}</Label>
-            {tooltip && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <FiInfo className="text-base text-gray-500 cursor-pointer ml-1.5" />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs text-sm">
-                  {tooltip}
-                </TooltipContent>
-              </Tooltip>
-            )}
+        >
+          <div className="flex items-center space-x-2">
+            {icon}
+            <div className="flex items-center">
+              <Label className="font-medium text-gray-700 text-sm">
+                {label}
+              </Label>
+              {tooltip && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <FiInfo className="text-base text-gray-500 cursor-pointer ml-1.5" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-sm">
+                    {tooltip}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
           </div>
+          <Switch
+            checked={checked}
+            onCheckedChange={(value) => {
+              // Add a visual feedback when toggled
+              const element = document.activeElement;
+              if (element) {
+                element.classList.add("scale-110");
+                setTimeout(() => element.classList.remove("scale-110"), 200);
+              }
+              onChange(value);
+            }}
+            disabled={isDisabled}
+            className="transition-transform duration-200 hover:scale-100 focus:ring-theme-secondary"
+          />
         </div>
-        <Switch
-          checked={checked}
-          onCheckedChange={(value) => {
-            // Add a visual feedback when toggled
-            const element = document.activeElement;
-            if (element) {
-              element.classList.add("scale-110");
-              setTimeout(() => element.classList.remove("scale-110"), 200);
-            }
-            onChange(value);
-          }}
-          disabled={isDisabled}
-          className="transition-transform duration-200 hover:scale-100 focus:ring-2 focus:ring-[#94B4C1]"
-        />
-      </div>
-    );
-  };
+      );
+    },
+    [animateOptions]
+  );
 
   return (
     <TooltipProvider>
@@ -396,10 +408,10 @@ export default function Dashboard() {
         >
           <div className="flex justify-between items-center" ref={headerRef}>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-[#213448] transition-all duration-300 hover:text-[#547792]">
+              <h1 className="text-3xl font-bold tracking-tight text-theme-dark transition-all duration-300 hover:text-theme-primary">
                 File Organizer
               </h1>
-              <p className="text-base text-[#547792] transition-opacity duration-300 hover:opacity-80">
+              <p className="text-base text-theme-primary transition-opacity duration-300 hover:opacity-80">
                 Automatically organize and manage your files
               </p>
             </div>
@@ -407,8 +419,8 @@ export default function Dashboard() {
             <div>
               <Badge
                 variant="outline"
-                className="bg-[#94B4C1]/10 text-[#213448] border-[#94B4C1] text-sm px-3 py-1.5 flex items-center 
-                  hover:bg-[#94B4C1]/20 transition-colors duration-300"
+                className="bg-theme-secondary-light text-theme-dark border-theme-secondary text-sm px-3 py-1.5 flex items-center 
+                  hover:bg-theme-secondary-20 transition-colors duration-300"
               >
                 <FiZap
                   className={`mr-1.5 transition-transform duration-300 ${
@@ -419,10 +431,11 @@ export default function Dashboard() {
               </Badge>
             </div>
           </div>
+
           {/* Stats Cards - with animation */}
           <Card
             ref={statsCardRef}
-            className={`bg-[#94B4C1]/10 border-[#94B4C1]/30 transition-all duration-500 ease-in-out
+            className={`bg-theme-secondary-light border-theme-secondary-30 transition-all duration-500 ease-in-out
               ${
                 animateCard
                   ? "opacity-100 translate-y-0"
@@ -435,12 +448,12 @@ export default function Dashboard() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-[#213448]">
+                  <p className="text-sm font-medium text-theme-dark">
                     Files Selected
                   </p>
                   <div className="flex items-center">
                     <h3
-                      className={`text-2xl font-bold text-[#213448] transition-all duration-500 ml-2 ${
+                      className={`text-2xl font-bold text-theme-dark transition-all duration-500 ml-2 ${
                         fileCount > 0 ? "scale-110" : "scale-100"
                       }`}
                     >
@@ -449,7 +462,7 @@ export default function Dashboard() {
                     {isCounting && (
                       <div className="ml-3 flex items-center">
                         <svg
-                          className="animate-spin h-4 w-4 text-[#547792]"
+                          className="animate-spin h-4 w-4 text-theme-primary"
                           xmlns="http://www.w3.org/2000/svg"
                           fill="none"
                           viewBox="0 0 24 24"
@@ -468,7 +481,7 @@ export default function Dashboard() {
                             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                           ></path>
                         </svg>
-                        <span className="text-sm ml-2 text-[#547792]">
+                        <span className="text-sm ml-2 text-theme-primary">
                           Counting...
                         </span>
                       </div>
@@ -477,7 +490,7 @@ export default function Dashboard() {
 
                   {/* Quick file stats - appear after folder selection */}
                   {fileCount > 0 && (
-                    <div className="flex space-x-3 mt-2 text-xs text-[#547792] animate-fadeIn">
+                    <div className="flex space-x-3 mt-2 text-xs text-theme-primary animate-fadeIn">
                       <span>{quickStats.images} images</span>
                       <span>•</span>
                       <span>{quickStats.documents} docs</span>
@@ -487,8 +500,8 @@ export default function Dashboard() {
                   )}
                 </div>
                 <div
-                  className={`h-12 w-12 bg-[#547792] rounded-full flex items-center justify-center transition-all duration-300
-                    hover:bg-[#213448] ${
+                  className={`h-12 w-12 bg-theme-primary rounded-full flex items-center justify-center transition-all duration-300
+                    hover:bg-theme-dark ${
                       folderHover ? "scale-110" : "scale-100"
                     } ${isCounting ? "opacity-70 cursor-wait" : ""}`}
                   onMouseEnter={() => setFolderHover(true)}
@@ -500,9 +513,10 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
+
           {/* Main Card */}
           <Card
-            className={`border-[#94B4C1]/40 shadow-sm overflow-hidden transition-all duration-500 ease-in-out
+            className={`border-theme-secondary-40 shadow-sm overflow-hidden transition-all duration-500 ease-in-out
               ${
                 animateCard
                   ? "opacity-100 translate-y-0"
@@ -510,7 +524,7 @@ export default function Dashboard() {
               }`}
           >
             <CardHeader
-              className={`bg-[#213448] text-white py-4 px-5 transition-colors duration-300 hover:bg-[#213448]/90
+              className={`bg-theme-dark text-white py-4 px-5 transition-colors duration-300 hover:bg-theme-dark-90
               ${screenSize === "sm" ? "py-3 px-4" : ""} sticky top-0 z-10`}
             >
               <CardTitle className="text-xl flex items-center">
@@ -519,7 +533,7 @@ export default function Dashboard() {
                   File Organization
                 </span>
               </CardTitle>
-              <CardDescription className="text-[#94B4C1] opacity-90 text-sm">
+              <CardDescription className="text-theme-secondary opacity-90 text-sm">
                 Organize your files into logical categories
               </CardDescription>
             </CardHeader>
@@ -537,14 +551,14 @@ export default function Dashboard() {
               >
                 {/* Select Folder Section */}
                 <div
-                  className={`bg-[#94B4C1]/10 p-4 rounded-lg border border-[#94B4C1]/30 
-                    transition-all duration-300 hover:border-[#547792]/60
+                  className={`bg-theme-secondary-light p-4 rounded-lg border border-theme-secondary-30 
+                    transition-all duration-300 hover:border-theme-primary-60
                     ${screenSize === "sm" ? "p-3" : ""}`}
                 >
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-base font-semibold flex items-center">
                       <FiFolder
-                        className={`mr-2 text-[#547792] transition-transform duration-300 
+                        className={`mr-2 text-theme-primary transition-transform duration-300 
                         ${folderHover ? "rotate-3" : ""}`}
                       />
                       Select Source Folder
@@ -553,7 +567,7 @@ export default function Dashboard() {
                       onClick={handleSelectFolder}
                       variant="outline"
                       size="sm"
-                      className={`border-[#547792] text-[#213448] hover:bg-[#94B4C1]/20 h-9 transition-all duration-300 hover:scale-105 ${
+                      className={`border-theme-primary text-theme-dark hover:bg-theme-secondary-20 h-9 transition-all duration-300 hover:scale-105 ${
                         isCounting ? "opacity-70 cursor-wait" : ""
                       }`}
                       onMouseEnter={() => setFolderHover(true)}
@@ -563,7 +577,7 @@ export default function Dashboard() {
                       {isCounting ? (
                         <>
                           <svg
-                            className="animate-spin -ml-1 mr-2 h-4 w-4 text-[#213448]"
+                            className="animate-spin -ml-1 mr-2 h-4 w-4 text-theme-dark"
                             xmlns="http://www.w3.org/2000/svg"
                             fill="none"
                             viewBox="0 0 24 24"
@@ -594,15 +608,15 @@ export default function Dashboard() {
 
                   {organizeState.selectedFolder ? (
                     <div
-                      className="bg-white p-3 rounded border border-[#94B4C1]/30 flex items-center text-sm
-                      transition-all duration-500 hover:border-[#547792]/60"
+                      className="bg-white p-3 rounded border border-theme-secondary-30 flex items-center text-sm
+                      transition-all duration-500 hover:border-theme-primary-60"
                     >
-                      <FiFolder className="text-[#547792] mr-2 flex-shrink-0" />
-                      <p className="text-[#213448] truncate">
+                      <FiFolder className="text-theme-primary mr-2 flex-shrink-0" />
+                      <p className="text-theme-dark truncate">
                         {organizeState.selectedFolder}
                       </p>
                       {fileCount > 0 && (
-                        <Badge className="ml-3 bg-[#94B4C1]/20 text-[#213448] border-0 text-sm transition-all duration-300 hover:bg-[#94B4C1]/40">
+                        <Badge className="ml-3 bg-theme-secondary-20 text-theme-dark border-0 text-sm transition-all duration-300 hover:bg-theme-secondary-40">
                           {isCounting ? "Counting..." : `${fileCount} files`}
                         </Badge>
                       )}
@@ -632,10 +646,10 @@ export default function Dashboard() {
                     </div>
                   ) : (
                     <div
-                      className="bg-[#94B4C1]/10 border border-dashed border-[#94B4C1]/40 rounded-lg p-3 text-center text-sm
-                      transition-all duration-300 hover:bg-[#94B4C1]/20"
+                      className="bg-theme-secondary-light border border-dashed border-theme-secondary-40 rounded-lg p-3 text-center text-sm
+                      transition-all duration-300 hover:bg-theme-secondary-20"
                     >
-                      <p className="text-[#213448]">No folder selected</p>
+                      <p className="text-theme-dark">No folder selected</p>
                     </div>
                   )}
                 </div>
@@ -651,37 +665,37 @@ export default function Dashboard() {
                   style={{ transitionDelay: "100ms" }}
                 >
                   <h3 className="text-base font-semibold flex items-center mb-2">
-                    <FiSettings className="mr-2 text-[#547792]" /> Organization
-                    Settings
+                    <FiSettings className="mr-2 text-theme-primary" />{" "}
+                    Organization Settings
                   </h3>
 
-                  <div className="ml-1 bg-[#94B4C1]/10 p-4 rounded-lg border border-[#94B4C1]/30 transition-all duration-300 hover:border-[#547792]/40">
+                  <div className="ml-1 bg-theme-secondary-light p-4 rounded-lg border border-theme-secondary-30 transition-all duration-300 hover:border-theme-primary-40">
                     {renderOptionRow(
                       "Use same folder for output",
                       organizeState.useTargetAsOutput,
                       (value) =>
                         handleOrganizeStateChange("useTargetAsOutput", value),
-                      <FiFolder className="text-[#547792] h-5 w-5" />
+                      <FiFolder className="text-theme-primary h-5 w-5" />
                     )}
 
                     {!organizeState.useTargetAsOutput && (
-                      <div className="border-l-2 border-[#547792] pl-3 ml-2 mt-2 transition-all duration-300 animate-fadeIn">
+                      <div className="border-l-2 border-theme-primary pl-3 ml-2 mt-2 transition-all duration-300 animate-fadeIn">
                         <div className="flex items-center justify-between py-1.5">
-                          <Label className="font-medium text-[#213448] text-sm">
+                          <Label className="font-medium text-theme-dark text-sm">
                             Output Folder:
                           </Label>
                           <Button
                             onClick={handleSelectOutputFolder}
                             variant="outline"
                             size="sm"
-                            className="border-[#94B4C1] text-[#213448] hover:bg-[#94B4C1]/20 h-8 text-sm transition-transform duration-300 hover:scale-105"
+                            className="border-theme-secondary text-theme-dark hover:bg-theme-secondary-20 h-8 text-sm transition-transform duration-300 hover:scale-105"
                             disabled={isCounting}
                           >
                             <FiFolder className="mr-1.5" /> Select
                           </Button>
                         </div>
                         {organizeState.outputFolder && (
-                          <div className="bg-white p-2 rounded border border-[#94B4C1]/30 text-sm text-[#213448] animate-fadeIn">
+                          <div className="bg-white p-2 rounded border border-theme-secondary-30 text-sm text-theme-dark animate-fadeIn">
                             {organizeState.outputFolder}
                           </div>
                         )}
@@ -707,7 +721,7 @@ export default function Dashboard() {
                         : "grid-cols-1 md:grid-cols-2 gap-4"
                     }`}
                   >
-                    <div className="bg-[#94B4C1]/10 p-4 rounded-lg border border-[#94B4C1]/30 transition-all duration-300 hover:border-[#547792]/40">
+                    <div className="bg-theme-secondary-light p-4 rounded-lg border border-theme-secondary-30 transition-all duration-300 hover:border-theme-primary-40">
                       {renderOptionRow(
                         "Treat Top Level Folders As One",
                         organizeState.TreatToplevelFoldersAsOne,
@@ -716,7 +730,7 @@ export default function Dashboard() {
                             "TreatToplevelFoldersAsOne",
                             value
                           ),
-                        <BiCategoryAlt className="text-[#547792] h-5 w-5" />,
+                        <BiCategoryAlt className="text-theme-primary h-5 w-5" />,
                         false,
                         "Group all top level folders"
                       )}
@@ -726,7 +740,7 @@ export default function Dashboard() {
                         organizeState.removeDuplicates,
                         (value) =>
                           handleOrganizeStateChange("removeDuplicates", value),
-                        <HiOutlineDuplicate className="text-[#547792] h-5 w-5" />,
+                        <HiOutlineDuplicate className="text-theme-primary h-5 w-5" />,
                         true
                       )}
 
@@ -738,12 +752,12 @@ export default function Dashboard() {
                             "isOrganizeEnabledBackUp",
                             value
                           ),
-                        <FiAlertTriangle className="text-[#547792] h-5 w-5" />,
+                        <FiAlertTriangle className="text-theme-primary h-5 w-5" />,
                         true
                       )}
                     </div>
 
-                    <div className="bg-[#94B4C1]/10 p-4 rounded-lg border border-[#94B4C1]/30 transition-all duration-300 hover:border-[#547792]/40">
+                    <div className="bg-theme-secondary-light p-4 rounded-lg border border-theme-secondary-30 transition-all duration-300 hover:border-theme-primary-40">
                       {renderOptionRow(
                         "Auto-rename files - Unavailable",
                         organizeState.autoRenameFiles,
@@ -761,7 +775,7 @@ export default function Dashboard() {
                             "autoArchiveOldFiles",
                             value
                           ),
-                        <FiArchive className="text-[#547792] h-5 w-5" />,
+                        <FiArchive className="text-theme-primary h-5 w-5" />,
                         true
                       )}
 
@@ -773,7 +787,7 @@ export default function Dashboard() {
                             "manualReviewNotifications",
                             value
                           ),
-                        <FiEye className="text-[#547792] h-5 w-5" />,
+                        <FiEye className="text-theme-primary h-5 w-5" />,
                         true
                       )}
                     </div>
@@ -782,15 +796,15 @@ export default function Dashboard() {
               </div>
             </CardContent>
 
-            <Separator className="bg-[#94B4C1]/30" />
+            <Separator className="bg-theme-secondary-30" />
 
             <CardFooter
-              className={`px-4 py-3 bg-[#94B4C1]/10 flex justify-center items-center transition-all duration-300
+              className={`px-4 py-3 bg-theme-secondary-light flex justify-center items-center transition-all duration-300
               ${screenSize === "sm" ? "px-3 py-2" : ""} sticky bottom-0 z-10`}
             >
               <div className="flex justify-center w-1/3">
                 <Button
-                  className={`bg-[#213448] hover:bg-[#213448]/90 text-white h-8 text-xs transition-all duration-300 w-full
+                  className={`bg-theme-dark hover:bg-theme-dark-90 text-white h-8 text-xs transition-all duration-300 w-full
                   ${isOrganizing || isCounting ? "" : "hover:scale-105"}
                   ${fileCount > 0 ? "animate-pulse-subtle" : ""}`}
                   size="sm"
@@ -857,16 +871,17 @@ export default function Dashboard() {
               </div>
             </CardFooter>
           </Card>
+
           <Button
             variant="outline"
             onClick={() => setIsDialogBrowserOpen(true)}
-            className="border-[#547792] text-[#213448] hover:bg-[#94B4C1]/20 h-8 text-xs transition-all duration-300 hover:scale-105"
+            className="border-theme-primary text-theme-dark hover:bg-theme-secondary-20 h-8 text-xs transition-all duration-300 hover:scale-105"
             size="sm"
           >
             <FiFolder className="mr-1" /> Browse
           </Button>
-          ;
         </div>
+
         <FolderBrowserDialog
           isOpen={isDialogBrowserOpen}
           onOpenChange={setIsDialogBrowserOpen}
@@ -877,12 +892,12 @@ export default function Dashboard() {
           }
           toast={toast}
         />
+
         {/* Enhanced Loading Overlay */}
         {isOrganizing && (
-          <div className="fixed top-[60px] left-0 right-0 bottom-0 bg-[#213448]/90 backdrop-blur-md flex items-center justify-center z-40 transition-all duration-500 animate-fadeIn">
-            {/* Changed pb-4 to pb-6 to increase bottom padding */}
+          <div className="fixed top-[60px] left-0 right-0 bottom-0 bg-theme-dark-90 backdrop-blur-md flex items-center justify-center z-40 transition-all duration-500 animate-fadeIn">
             <div
-              className="bg-white px-6 pt-2 pb-6 rounded-xl shadow-lg flex flex-col items-center max-w-md w-full mx-4 border border-[#94B4C1]/40 animate-scaleIn" // <-- pb-4 changed to pb-6
+              className="bg-white px-6 pt-2 pb-6 rounded-xl shadow-lg flex flex-col items-center max-w-md w-full mx-4 border border-theme-secondary-40 animate-scaleIn"
               style={{ maxHeight: "90vh", overflowY: "auto" }}
             >
               {/* Spinner Container */}
@@ -890,29 +905,30 @@ export default function Dashboard() {
                 {/* Outer circle */}
                 <div className="w-40 h-40 border-6 border-primary/30 rounded-full"></div>
                 {/* Inner static circle */}
-                <div className="absolute top-8 left-8 w-24 h-24 border-4 border-[#94B4C1]/40 rounded-full"></div>
+                <div className="absolute top-8 left-8 w-24 h-24 border-4 border-theme-secondary-40 rounded-full"></div>
                 {/* Inner animated spinner */}
                 <div
-                  className="absolute top-8 left-8 w-24 h-24 border-4 border-[#94B4C1] rounded-full animate-spin border-t-transparent"
+                  className="absolute top-8 left-8 w-24 h-24 border-4 border-theme-secondary rounded-full animate-spin border-t-transparent"
                   style={{ animationDuration: "1.2s" }}
                 ></div>
               </div>
 
               {/* Title */}
-              <h3 className="text-xl font-bold mb-2 text-[#213448]">
+              <h3 className="text-xl font-bold mb-2 text-theme-dark">
                 Organizing Files
               </h3>
+
               {/* Loading Message */}
               <div className="h-5 mb-3 text-center">
-                <p className="text-[#547792] text-sm animate-pulse">
+                <p className="text-theme-primary text-sm animate-pulse">
                   {loadingMessage}
                 </p>
               </div>
 
               {/* Progress Bar Container */}
-              <div className="w-full bg-[#94B4C1]/20 rounded-full h-2.5 mb-3 overflow-hidden">
+              <div className="w-full bg-theme-secondary-20 rounded-full h-2.5 mb-3 overflow-hidden">
                 <div
-                  className="bg-[#547792] h-full transition-all duration-300 ease-out rounded-full"
+                  className="bg-theme-primary h-full transition-all duration-300 ease-out rounded-full"
                   style={{
                     width: `${loadingProgress}%`,
                     boxShadow: "0 0 10px rgba(84, 119, 146, 0.5)",
@@ -921,13 +937,12 @@ export default function Dashboard() {
               </div>
 
               {/* File Count Text */}
-              <div className="text-sm text-[#547792] text-center font-medium">
+              <div className="text-sm text-theme-primary text-center font-medium">
                 <p>Processing {fileCount} files</p>
                 <p className="text-xs mt-1 opacity-75">
                   This may take a moment...
                 </p>
               </div>
-              {/* Increased space below this text due to pb-6 on the parent */}
             </div>
           </div>
         )}

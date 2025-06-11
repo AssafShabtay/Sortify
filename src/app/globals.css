@@ -9,53 +9,70 @@ body {
 @layer base {
   :root {
     /* Color theme - keeping your existing theme */
-    --primary-blue: 84, 119, 146;
-    --secondary-blue: 148, 180, 193;
-    --accent-cream: 236, 239, 202;
-    --accent-green: 175, 214, 157;
+    --primary-blue: 84, 119, 146; /* rgb(84, 119, 146) */
+    --secondary-blue: 148, 180, 193; /* rgb(148, 180, 193) */
+    --accent-cream: 236, 239, 202; /* rgb(236, 239, 202) */
+    --accent-green: 175, 214, 157; /* rgb(175, 214, 157) */
+    --dark-blue: 33, 52, 72; /* rgb(33, 52, 72) */
+    --white: 255, 255, 255; /* rgb(255, 255, 255) */
+    --gray: 190, 190, 190; /* rgb(190, 190, 190) */
 
-    --background: 0 0% 100%;
-    --foreground: 207, 100%, 7.1%;
-    --card: 0 0% 100%;
-    --card-foreground: 204 26% 45%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 204 26% 45%;
-    --primary: 157, 64.3%, 11%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 197 31% 67%;
-    --secondary-foreground: 204 26% 25%;
-    --muted: 84 51% 86%;
-    --muted-foreground: 204 26% 35%;
-    --accent: 84 51% 86%;
-    --accent-foreground: 204 26% 25%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 197 31% 80%;
-    --input: 197 31% 80%;
-    --ring: 204 26% 45%;
+    /* Light mode - unchanged */
+    --background: 0 0% 100%; /* hsl(0, 0%, 100%) */
+    --foreground: 207, 100%, 7.1%; /* hsl(207, 100%, 7.1%) */
+    --card: 0 0% 100%; /* hsl(0, 0%, 100%) */
+    --card-foreground: 204 26% 45%; /* hsl(204, 26%, 45%) */
+    --popover: 0 0% 100%; /* hsl(0, 0%, 100%) */
+    --popover-foreground: 204 26% 45%; /* hsl(204, 26%, 45%) */
+    --primary: 157, 64.3%, 11%; /* hsl(157, 64.3%, 11%) */
+    --primary-foreground: 0 0% 98%; /* hsl(0, 0%, 98%) */
+    --secondary: 197 31% 67%; /* hsl(197, 31%, 67%) */
+    --secondary-foreground: 204 26% 25%; /* hsl(204, 26%, 25%) */
+    --muted: 84 51% 86%; /* hsl(84, 51%, 86%) */
+    --muted-foreground: 204 26% 35%; /* hsl(204, 26%, 35%) */
+    --accent: 84 51% 86%; /* hsl(84, 51%, 86%) */
+    --accent-foreground: 204 26% 25%; /* hsl(204, 26%, 25%) */
+    --destructive: 0 84.2% 60.2%; /* hsl(0, 84.2%, 60.2%) */
+    --destructive-foreground: 0 0% 98%; /* hsl(0, 0%, 98%) */
+    --border: 197 31% 80%; /* hsl(197, 31%, 80%) */
+    --input: 197 31% 80%; /* hsl(197, 31%, 80%) */
+    --ring: 204 26% 45%; /* hsl(204, 26%, 45%) */
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 204 26% 20%;
-    --foreground: 84 51% 95%;
-    --card: 204 26% 20%;
-    --card-foreground: 84 51% 95%;
-    --popover: 204 26% 20%;
-    --popover-foreground: 84 51% 95%;
-    --primary: 197 31% 67%;
-    --primary-foreground: 204 26% 20%;
-    --secondary: 204 26% 30%;
-    --secondary-foreground: 84 51% 95%;
-    --muted: 204 26% 30%;
-    --muted-foreground: 197 31% 80%;
-    --accent: 107 42% 73%;
-    --accent-foreground: 204 26% 20%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 84 51% 95%;
-    --border: 204 26% 35%;
-    --input: 204 26% 35%;
-    --ring: 197 31% 67%;
+    /* Improved dark mode palette based on primary blue (84, 119, 146) */
+    --background: 210, 25%, 8%; /* Very dark blue-gray - rgb(15, 19, 26) */
+    --foreground: 210, 20%, 98%; /* Soft white with blue tint - rgb(247, 248, 250) */
+    --card: 210, 23%, 12%; /* Slightly lighter than background - rgb(24, 29, 38) */
+    --card-foreground: 210, 20%, 95%; /* Light blue-white - rgb(239, 241, 245) */
+    --popover: 210, 22%, 14%; /* Card variant - rgb(28, 34, 44) */
+    --popover-foreground: 210, 20%, 95%; /* Same as card foreground */
+
+    /* Primary colors - enhanced versions of the main blue */
+    --primary: 207, 35%, 58%; /* Brighter version of primary blue - rgb(98, 138, 178) */
+    --primary-foreground: 210, 25%, 8%; /* Dark background for contrast */
+
+    /* Secondary - softer blue tones */
+    --secondary: 210, 20%, 25%; /* Muted dark blue - rgb(51, 60, 76) */
+    --secondary-foreground: 210, 35%, 85%; /* Light blue-gray - rgb(202, 215, 230) */
+
+    /* Muted colors for subtle elements */
+    --muted: 210, 18%, 20%; /* Subtle dark blue - rgb(42, 49, 61) */
+    --muted-foreground: 210, 15%, 65%; /* Medium blue-gray - rgb(142, 154, 172) */
+
+    /* Accent - cool teal-blue */
+    --accent: 190, 40%, 50%; /* Cool teal accent - rgb(77, 153, 178) */
+    --accent-foreground: 210, 25%, 12%; /* Dark for contrast */
+
+    /* Destructive - muted red */
+    --destructive: 0, 50%, 45%; /* Softer red for dark mode - rgb(172, 57, 57) */
+    --destructive-foreground: 210, 20%, 98%; /* Light text */
+
+    /* Borders and inputs */
+    --border: 210, 20%, 22%; /* Subtle borders - rgb(45, 53, 67) */
+    --input: 210, 20%, 18%; /* Input backgrounds - rgb(37, 43, 55) */
+    --ring: 207, 35%, 58%; /* Focus ring matches primary */
   }
 }
 
@@ -65,6 +82,234 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Dark mode specific enhancements */
+.dark {
+  /* Smooth color transitions */
+  color-scheme: dark;
+
+  /* Better scrollbar for dark mode */
+  &::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: rgb(24, 29, 38);
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgb(51, 60, 76);
+    border-radius: 6px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: rgb(98, 138, 178);
+  }
+
+  /* Enhanced shadows for dark mode */
+  .shadow-sm {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  }
+
+  .shadow {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  }
+
+  .shadow-lg {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5),
+      0 4px 6px -2px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Better hover states in dark mode */
+  .hover\:bg-theme-primary-20:hover {
+    background-color: rgba(98, 138, 178, 0.2);
+  }
+
+  .hover\:bg-theme-secondary-20:hover {
+    background-color: rgba(51, 60, 76, 0.3);
+  }
+
+  /* Adjusted theme colors for dark mode */
+  .bg-theme-primary {
+    background-color: rgb(98, 138, 178);
+  }
+
+  .bg-theme-primary-light {
+    background-color: rgba(98, 138, 178, 0.15);
+  }
+
+  .bg-theme-primary-lighter {
+    background-color: rgba(98, 138, 178, 0.08);
+  }
+
+  .bg-theme-secondary {
+    background-color: rgb(51, 60, 76);
+  }
+
+  .bg-theme-secondary-light {
+    background-color: rgba(51, 60, 76, 0.3);
+  }
+
+  .bg-theme-secondary-lighter {
+    background-color: rgba(51, 60, 76, 0.15);
+  }
+
+  .bg-theme-dark {
+    background-color: rgb(15, 19, 26);
+  }
+
+  .bg-theme-dark-90 {
+    background-color: rgba(15, 19, 26, 0.95);
+  }
+
+  .text-theme-primary {
+    color: rgb(139, 180, 221);
+  }
+
+  .text-theme-secondary {
+    color: rgb(202, 215, 230);
+  }
+
+  .text-theme-dark {
+    color: rgb(247, 248, 250);
+  }
+
+  .border-theme-primary {
+    border-color: rgb(98, 138, 178);
+  }
+
+  .border-theme-secondary {
+    border-color: rgb(51, 60, 76);
+  }
+
+  .border-theme-secondary-30 {
+    border-color: rgba(51, 60, 76, 0.5);
+  }
+
+  .border-theme-secondary-40 {
+    border-color: rgba(51, 60, 76, 0.6);
+  }
+
+  /* Loading overlay adjustments for dark mode */
+  .bg-theme-dark-90 {
+    background-color: rgba(15, 19, 26, 0.9);
+  }
+
+  /* Card backgrounds in dark mode */
+  .bg-white {
+    background-color: rgb(28, 34, 44);
+  }
+
+  /* Text colors for better contrast */
+  .text-gray-700 {
+    color: rgb(202, 215, 230);
+  }
+
+  .text-gray-500 {
+    color: rgb(142, 154, 172);
+  }
+
+  .text-gray-400 {
+    color: rgb(107, 119, 140);
+  }
+
+  /* Badge adjustments */
+  .bg-theme-secondary-light {
+    background-color: rgba(51, 60, 76, 0.3);
+  }
+}
+
+/* Custom utility classes for theme colors */
+@layer utilities {
+  .bg-theme-primary {
+    background-color: rgb(var(--primary-blue));
+  }
+
+  .bg-theme-primary-light {
+    background-color: rgba(var(--primary-blue), 0.1);
+  }
+
+  .bg-theme-primary-lighter {
+    background-color: rgba(var(--primary-blue), 0.05);
+  }
+
+  .bg-theme-secondary {
+    background-color: rgb(var(--secondary-blue));
+  }
+
+  .bg-theme-secondary-light {
+    background-color: rgba(var(--secondary-blue), 0.1);
+  }
+
+  .bg-theme-secondary-lighter {
+    background-color: rgba(var(--secondary-blue), 0.05);
+  }
+
+  .bg-theme-dark {
+    background-color: rgb(var(--dark-blue));
+  }
+
+  .bg-theme-dark-90 {
+    background-color: rgba(var(--dark-blue), 0.9);
+  }
+
+  .text-theme-primary {
+    color: rgb(var(--primary-blue));
+  }
+
+  .text-theme-secondary {
+    color: rgb(var(--secondary-blue));
+  }
+
+  .text-theme-dark {
+    color: rgb(var(--dark-blue));
+  }
+
+  .border-theme-primary {
+    border-color: rgb(var(--primary-blue));
+  }
+
+  .border-theme-secondary {
+    border-color: rgb(var(--secondary-blue));
+  }
+
+  .border-theme-secondary-30 {
+    border-color: rgba(var(--secondary-blue), 0.3);
+  }
+
+  .border-theme-secondary-40 {
+    border-color: rgba(var(--secondary-blue), 0.4);
+  }
+
+  .hover\:bg-theme-primary-20:hover {
+    background-color: rgba(var(--primary-blue), 0.2);
+  }
+
+  .hover\:bg-theme-secondary-20:hover {
+    background-color: rgba(var(--secondary-blue), 0.2);
+  }
+
+  .hover\:bg-theme-dark-90:hover {
+    background-color: rgba(var(--dark-blue), 0.9);
+  }
+
+  .hover\:border-theme-primary-60:hover {
+    border-color: rgba(var(--primary-blue), 0.6);
+  }
+
+  .hover\:border-theme-secondary-60:hover {
+    border-color: rgba(var(--secondary-blue), 0.6);
+  }
+
+  .hover\:text-theme-primary:hover {
+    color: rgb(var(--gray));
+  }
+
+  .focus\:ring-theme-secondary:focus {
+    --tw-ring-color: rgba(var(--secondary-blue), 0.5);
   }
 }
 
@@ -306,6 +551,16 @@ body {
   animation: loading-shimmer 1.5s infinite;
 }
 
+/* Dark mode loading skeleton */
+.dark .loading-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgb(28, 34, 44) 25%,
+    rgb(37, 43, 55) 50%,
+    rgb(28, 34, 44) 75%
+  );
+}
+
 @keyframes loading-shimmer {
   0% {
     background-position: -200% 0;
@@ -356,21 +611,38 @@ body {
   animation: slideIn 0.3s ease-in reverse;
 }
 
-/* File icons color improvements */
+/* File icons color improvements using theme colors */
 .text-blue-500 {
-  color: #547792 !important;
+  color: rgb(var(--primary-blue)) !important;
 }
 .text-green-500 {
-  color: #afd69d !important;
+  color: rgb(var(--accent-green)) !important;
 }
 .text-purple-500 {
-  color: #94b4c1 !important;
+  color: rgb(var(--secondary-blue)) !important;
 }
 .text-red-500 {
-  color: #547792 !important;
+  color: rgb(var(--primary-blue)) !important;
 }
 .text-gray-500 {
-  color: #94b4c1 !important;
+  color: rgb(var(--secondary-blue)) !important;
+}
+
+/* Dark mode file icon adjustments */
+.dark .text-blue-500 {
+  color: rgb(139, 180, 221) !important;
+}
+.dark .text-green-500 {
+  color: rgb(134, 194, 154) !important;
+}
+.dark .text-purple-500 {
+  color: rgb(167, 139, 250) !important;
+}
+.dark .text-red-500 {
+  color: rgb(239, 121, 121) !important;
+}
+.dark .text-gray-500 {
+  color: rgb(142, 154, 172) !important;
 }
 
 /* Performance optimizations */
