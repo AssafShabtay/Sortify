@@ -116,7 +116,6 @@ export default function Dashboard() {
 
     return () => clearTimeout(timer);
   }, []);
-
   // Set up loading message rotation when organizing is active
   useEffect(() => {
     let messageInterval;
@@ -172,11 +171,10 @@ export default function Dashboard() {
 
     // Clean up intervals when component unmounts or organizing stops
     return () => {
-      if (messageInterval) clearInterval(messageInterval);
-      if (progressInterval) clearInterval(progressInterval);
+      clearInterval(messageInterval);
+      clearInterval(progressInterval);
     };
-  }, [isOrganizing, fileCount, loadingMessages]);
-
+  }, [isOrganizing, fileCount]);
   // Separate useEffect to handle the completion animation
   useEffect(() => {
     let smoothTransition;
@@ -209,7 +207,6 @@ export default function Dashboard() {
       if (smoothTransition) clearInterval(smoothTransition);
     };
   }, [isOrganizing, loadingProgress]);
-
   // Set random stats data when folder is selected
   useEffect(() => {
     if (fileCount > 0) {
@@ -872,14 +869,14 @@ export default function Dashboard() {
             </CardFooter>
           </Card>
 
-          <Button
+          {/*<Button
             variant="outline"
             onClick={() => setIsDialogBrowserOpen(true)}
             className="border-theme-primary text-theme-dark hover:bg-theme-secondary-20 h-8 text-xs transition-all duration-300 hover:scale-105"
             size="sm"
           >
             <FiFolder className="mr-1" /> Browse
-          </Button>
+          </Button>*/}
         </div>
 
         <FolderBrowserDialog
@@ -896,8 +893,9 @@ export default function Dashboard() {
         {/* Enhanced Loading Overlay */}
         {isOrganizing && (
           <div className="fixed top-[60px] left-0 right-0 bottom-0 bg-theme-dark-90 backdrop-blur-md flex items-center justify-center z-40 transition-all duration-500 animate-fadeIn">
+            {/* Changed pb-4 to pb-6 to increase bottom padding */}
             <div
-              className="bg-white px-6 pt-2 pb-6 rounded-xl shadow-lg flex flex-col items-center max-w-md w-full mx-4 border border-theme-secondary-40 animate-scaleIn"
+              className="bg-white px-6 pt-2 pb-6 rounded-xl shadow-lg flex flex-col items-center max-w-md w-full mx-4 border border-theme-secondary-40 animate-scaleIn" // <-- pb-4 changed to pb-6
               style={{ maxHeight: "90vh", overflowY: "auto" }}
             >
               {/* Spinner Container */}
@@ -917,7 +915,6 @@ export default function Dashboard() {
               <h3 className="text-xl font-bold mb-2 text-theme-dark">
                 Organizing Files
               </h3>
-
               {/* Loading Message */}
               <div className="h-5 mb-3 text-center">
                 <p className="text-theme-primary text-sm animate-pulse">
@@ -943,6 +940,7 @@ export default function Dashboard() {
                   This may take a moment...
                 </p>
               </div>
+              {/* Increased space below this text due to pb-6 on the parent */}
             </div>
           </div>
         )}

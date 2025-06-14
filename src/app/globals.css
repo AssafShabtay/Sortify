@@ -314,7 +314,68 @@ body {
 }
 
 /* Simple, reliable animations */
+@keyframes spinner-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
 
+/* Ensure spinner animation works regardless of other styles */
+.loading-spinner {
+  animation: spinner-rotate 1s linear infinite !important;
+  transform-origin: center !important;
+}
+
+.loading-spinner-slow {
+  animation: spinner-rotate 1.5s linear infinite !important;
+  transform-origin: center !important;
+}
+
+/* Fix for existing animate-spin class to ensure it works */
+.animate-spin {
+  animation: spinner-rotate 1s linear infinite !important;
+  transform-origin: center !important;
+}
+
+/* Additional spinner variants for different speeds */
+.spinner-fast {
+  animation: spinner-rotate 0.8s linear infinite !important;
+}
+
+.spinner-medium {
+  animation: spinner-rotate 1.2s linear infinite !important;
+}
+
+.spinner-slow {
+  animation: spinner-rotate 1.8s linear infinite !important;
+}
+
+/* Ensure borders are visible in all themes */
+.spinner-border {
+  border: 4px solid rgba(59, 130, 246, 0.1) !important;
+  border-top: 4px solid rgb(59, 130, 246) !important;
+  border-radius: 50% !important;
+}
+
+/* Dark mode spinner adjustments */
+.dark .spinner-border {
+  border: 4px solid rgba(139, 180, 221, 0.2) !important;
+  border-top: 4px solid rgb(139, 180, 221) !important;
+}
+
+/* Theme-specific spinner colors */
+.spinner-theme-primary {
+  border: 4px solid rgba(var(--primary-blue), 0.2) !important;
+  border-top: 4px solid rgb(var(--primary-blue)) !important;
+}
+
+.spinner-theme-secondary {
+  border: 4px solid rgba(var(--secondary-blue), 0.2) !important;
+  border-top: 4px solid rgb(var(--secondary-blue)) !important;
+}
 /* Loading animations */
 @keyframes spin {
   from {
